@@ -211,3 +211,6 @@ __marimo__/
 
 # python version
 .python-version
+
+# diffs file
+*diffs.txt
