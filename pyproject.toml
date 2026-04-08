@@ -1,0 +1,96 @@
+[project]
+name = "nornflow-arista"
+version = "0.1.0"
+description = "NornFlow companion package for Arista EOS: tasks, workflows, blueprints, inventory filters, Jinja2 filters, and hooks built around pyeapi (eAPI). Install alongside NornFlow and declare the package in nornflow.yaml; no CLI entry points—automation runs through NornFlow."
+readme = "README.md"
+authors = [
+    { name = "Andre Lima", email = "andre@netcube.consulting" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+
+dependencies = [
+    "nornir>=3.5.0",
+    "pyeapi>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.20.0",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.1",
+]
+
+[build-system]
+requires = ["hatchling>=1.17.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["nornflow_arista"]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["nornflow_arista"]
+exclude = ["tests/*", "debug_*.py"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "A",
+    "ANN001",
+    "ANN003",
+    "ANN204",
+    "ANN205",
+    "ANN401",
+    "ARG",
+    "BLE001",
+    "C901",
+    "COM",
+    "D",
+    "DTZ005",
+    "EM",
+    "ERA001",
+    "F821",
+    "FBT001",
+    "FBT002",
+    "FBT003",
+    "G004",
+    "PLW2901",
+    "RET504",
+    "RSE",
+    "SIM102",
+    "TCH",
+    "TD002",
+    "TD003",
+    "FIX002",
+    "TRY003",
+    "TRY300",
+    "TRY301",
+    "TRY400",
+    "PIE790",
+    "PLR0913",
+    "PLR0915",
+    "PLE0604",
+    "RET503",
+    "RUF003",
+    "RUF013",
+]
+extend-select = ["I"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint.isort]
+case-sensitive = false
+order-by-type = false
+combine-as-imports = true
+no-lines-before = ["local-folder"]
+known-first-party = ["nornflow_arista"]
