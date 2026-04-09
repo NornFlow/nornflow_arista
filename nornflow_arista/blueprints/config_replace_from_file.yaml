@@ -1,0 +1,16 @@
+description: >
+  Replace running-config and/or startup-config using command(s) that reference a file already on
+  the device (for example 'configure replace flash:file.cfg'). Set 'eos_replace_mode' to 'running',
+  'startup', or 'both'. Set 'eos_replace_running_commands' and/or 'eos_replace_startup_commands'
+  to strings or lists of commands as required by your platform.
+
+tasks:
+  - name: run_commands
+    if: "{{ eos_replace_mode == 'running' or eos_replace_mode == 'both' }}"
+    args:
+      commands: "{{ eos_replace_running_commands }}"
+
+  - name: run_commands
+    if: "{{ eos_replace_mode == 'startup' or eos_replace_mode == 'both' }}"
+    args:
+      commands: "{{ eos_replace_startup_commands }}"

@@ -1,0 +1,15 @@
+description: >
+  Copy on the EOS device via 'copy_from_remote'. Use either ('copy_source' + 'copy_destination')
+  or 'copy_command' as a full CLI line (set 'use_copy_command' to true).
+
+tasks:
+  - name: copy_from_remote
+    if: "{{ use_copy_command | default(false) }}"
+    args:
+      command: "{{ copy_command }}"
+
+  - name: copy_from_remote
+    if: "{{ not (use_copy_command | default(false)) }}"
+    args:
+      source: "{{ copy_source }}"
+      destination: "{{ copy_destination }}"
