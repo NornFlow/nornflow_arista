@@ -10,6 +10,7 @@ license = { text = "MIT" }
 requires-python = ">=3.10"
 
 dependencies = [
+    "jinja2>=3.1.6",
     "nornir>=3.5.0",
     "pyeapi>=1.0",
 ]
