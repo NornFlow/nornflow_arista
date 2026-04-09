@@ -1,0 +1,219 @@
+"""Read-only Nornir tasks: EOS 'show' commands, config retrieval, and system info via eAPI."""
+
+from nornir.core.task import Result, Task
+from pyeapi.client import Node
+
+from nornflow_arista.tasks.decorators import _eos_getter, _eos_task
+from nornflow_arista.tasks.task_helpers import (
+    _node_for_task,
+    _params,
+    _result_failed,
+    _result_ok,
+)
+
+
+@_eos_getter
+def get_facts(task: Task, node: Node) -> Result:
+    """Run 'show version' and return structured CLI output (JSON encoding)."""
+    return node.enable("show version")
+
+
+@_eos_getter
+def get_interfaces(task: Task, node: Node) -> Result:
+    """Run 'show interfaces' and return CLI output."""
+    return node.enable("show interfaces")
+
+
+@_eos_getter
+def get_interfaces_status(task: Task, node: Node) -> Result:
+    """Run 'show interfaces status' (oper state, line protocol, etc.)."""
+    return node.enable("show interfaces status")
+
+
+@_eos_getter
+def get_ip_interface_brief(task: Task, node: Node) -> Result:
+    """Run 'show ip interface brief'."""
+    return node.enable("show ip interface brief")
+
+
+@_eos_getter
+def get_interface_counters(task: Task, node: Node) -> Result:
+    """Run 'show interfaces counters errors' (CRC, discards, etc.)."""
+    return node.enable("show interfaces counters errors")
+
+
+@_eos_getter
+def get_bgp_summary(task: Task, node: Node) -> Result:
+    """Run 'show ip bgp summary'."""
+    return node.enable("show ip bgp summary")
+
+
+@_eos_getter
+def get_bgp_neighbors_detail(task: Task, node: Node) -> Result:
+    """Run 'show ip bgp neighbors' (detailed neighbor output)."""
+    return node.enable("show ip bgp neighbors")
+
+
+@_eos_getter
+def get_ospf_neighbors(task: Task, node: Node) -> Result:
+    """Run 'show ip ospf neighbor'."""
+    return node.enable("show ip ospf neighbor")
+
+
+@_eos_task
+def get_ip_route(task: Task) -> Result:
+    """Run 'show ip route' with optional VRF or prefix filter.
+
+    Params:
+        vrf: VRF name (adds 'vrf <name>' to the command).
+        prefix: Optional IPv4/IPv6 prefix to append (device-specific filtering).
+    """
+    p = _params(task)
+    vrf = p.get("vrf")
+    prefix = p.get("prefix")
+    cmd = "show ip route"
+    if vrf is not None and str(vrf).strip():
+        cmd += f" vrf {vrf}"
+    if prefix is not None and str(prefix).strip():
+        cmd += f" {prefix.strip()}"
+    node = _node_for_task(task)
+    out = node.enable(cmd)
+    return _result_ok(task, out)
+
+
+@_eos_getter
+def get_mlag_status(task: Task, node: Node) -> Result:
+    """Run 'show mlag' and 'show mlag config-sanity'; return both outputs."""
+    mlag = node.enable("show mlag")
+    sanity = node.enable("show mlag config-sanity")
+    return {"mlag": mlag, "mlag_config_sanity": sanity}
+
+
+@_eos_getter
+def get_vxlan_vteps(task: Task, node: Node) -> Result:
+    """Run 'show vxlan vtep'."""
+    return node.enable("show vxlan vtep")
+
+
+@_eos_task
+def get_lldp_neighbors(task: Task) -> Result:
+    """Run LLDP neighbor listing; optional detail view.
+
+    Params:
+        detail: If True (default False), run 'show lldp neighbors detail'.
+    """
+    p = _params(task)
+    detail = bool(p.get("detail", False))
+    cmd = "show lldp neighbors detail" if detail else "show lldp neighbors"
+    node = _node_for_task(task)
+    out = node.enable(cmd)
+    return _result_ok(task, out)
+
+
+@_eos_getter
+def get_hardware_capacity(task: Task, node: Node) -> Result:
+    """Run 'show hardware capacity'."""
+    return node.enable("show hardware capacity")
+
+
+@_eos_getter
+def get_transceiver_info(task: Task, node: Node) -> Result:
+    """Run 'show interfaces transceiver' (DOM / optics; often empty on cEOS)."""
+    return node.enable("show interfaces transceiver")
+
+
+@_eos_getter
+def get_reload_cause(task: Task, node: Node) -> Result:
+    """Run 'show reload cause'."""
+    return node.enable("show reload cause")
+
+
+@_eos_getter
+def dir_flash(task: Task, node: Node) -> Result:
+    """List contents of 'flash:' ('dir flash:')."""
+    return node.enable("dir flash:")
+
+
+@_eos_getter
+def show_filesystem(task: Task, node: Node) -> Result:
+    """Run 'show filesystem' (availability and fields vary by platform and EOS release)."""
+    return node.enable("show filesystem")
+
+
+@_eos_getter
+def show_inventory(task: Task, node: Node) -> Result:
+    """Run 'show inventory' for hardware component listing (output varies by platform)."""
+    return node.enable("show inventory")
+
+
+@_eos_task
+def get_running_config(task: Task) -> Result:
+    """Return running configuration as text, optionally a single section.
+
+    Params:
+        section: If set, runs 'show running-config section <section>' (EOS syntax).
+        include_defaults: If True, pass 'all' to include default statements where supported.
+    """
+    p = _params(task)
+    section = p.get("section")
+    include_defaults = bool(p.get("include_defaults", False))
+    node = _node_for_task(task)
+    params = None
+    if section is not None and str(section).strip():
+        params = f"section {section.strip()}"
+        if include_defaults:
+            params += " all"
+    elif include_defaults:
+        params = "all"
+    cfg = node.get_config("running-config", params=params, as_string=True)
+    return _result_ok(task, cfg)
+
+
+@_eos_task
+def get_startup_config(task: Task) -> Result:
+    """Return startup-config as a string."""
+    node = _node_for_task(task)
+    cfg = node.get_config("startup-config", as_string=True)
+    return _result_ok(task, cfg)
+
+
+@_eos_task
+def get_config_diff(task: Task) -> Result:
+    """Show differences between running-config and startup-config ('show running-config diffs')."""
+    node = _node_for_task(task)
+    out = node.run_commands("show running-config diffs", encoding="text")
+    text = str(out[0].get("output", ""))
+    return _result_ok(task, text)
+
+
+@_eos_task
+def run_commands(task: Task) -> Result:
+    """Run arbitrary exec-mode commands from 'task.params' key 'commands'.
+
+    Params:
+        commands: A single command string or a list of command strings.
+    """
+    p = _params(task)
+    commands = p.get("commands")
+    if commands is None:
+        msg = 'Missing required task param "commands".'
+        return _result_failed(task, ValueError(msg))
+    node = _node_for_task(task)
+    out = node.enable(commands)
+    return _result_ok(task, out)
+
+
+@_eos_task
+def dir_path(task: Task) -> Result:
+    """List a path on the device ('dir <path>').
+
+    Params:
+        path: Path to list (default 'flash:').
+    """
+    p = _params(task)
+    path = p.get("path", "flash:")
+    if path is None or str(path).strip() == "":
+        path = "flash:"
+    node = _node_for_task(task)
+    out = node.enable(f"dir {path}")
+    return _result_ok(task, out)
