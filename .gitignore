@@ -218,3 +218,5 @@ __marimo__/
 .cursor/
 
 architectural_docs/
+
+*.DS_Store
