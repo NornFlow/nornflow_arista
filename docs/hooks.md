@@ -18,7 +18,7 @@
 
 NornFlow hooks extend task behaviour without modifying task code. They can run before or after a task, inspect or mutate the result, conditionally skip execution, and set runtime variables.
 
-The hooks that ship with NornFlow core (`if`, `set_to`, `_failed`) are inline YAML hooks written directly in workflow and blueprint task entries. Custom Python hooks go further: they can implement complex pre/post logic that would be unwieldy in YAML.
+The hooks that ship with NornFlow core (`if`, `set_to`) are inline YAML hooks written directly in workflow and blueprint task entries. The special `set_to` value `"_failed"` stores whether the task failed; it is not a separate hook name. Custom Python hooks go further: they can implement complex pre/post logic that would be unwieldy in YAML.
 
 See the NornFlow [hooks guide](https://github.com/theandrelima/nornflow/blob/main/docs/hooks_guide.md) for the full API.
 

@@ -121,6 +121,25 @@ def test_get_running_config_whitespace_section_with_defaults(
 
 
 @patch("nornflow_arista.tasks.getters._node_for_task")
+def test_get_running_config_include_defaults_alias(
+    mock_node_for_task: MagicMock,
+    make_task,
+) -> None:
+    """include_defaults is a backward-compatible alias for all."""
+    node = MagicMock()
+    node.get_config.return_value = "hostname sw1"
+    mock_node_for_task.return_value = node
+    task = make_task(section="router bgp", include_defaults=True)
+    result = run_task_like_nornir(getters.get_running_config, task)
+    assert not result.failed
+    node.get_config.assert_called_once_with(
+        "running-config",
+        params="section router bgp all",
+        as_string=True,
+    )
+
+
+@patch("nornflow_arista.tasks.getters._node_for_task")
 def test_get_running_config_section_list(
     mock_node_for_task: MagicMock,
     make_task,

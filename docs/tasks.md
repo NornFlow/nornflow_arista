@@ -22,7 +22,7 @@ Every mutating task checks `task.is_dry_run()` and returns a skipped `Result` wi
 
 ## Getter tasks (read-only)
 
-These tasks run `show` commands and return the structured JSON response from the EOS eAPI. None of them modify device state.
+These tasks run `show` commands and return EOS output. Most return structured JSON from the eAPI; config-oriented getters such as `get_running_config` and `get_startup_config` return plain text. None of them modify device state.
 
 | Task name | EOS command | Notes |
 |---|---|---|
@@ -45,7 +45,7 @@ These tasks run `show` commands and return the structured JSON response from the
 | `get_startup_config` | `show startup-config` | Returns startup-config as text |
 | `get_config_diff` | `show running-config diffs` | Uncommitted session diffs |
 | `dir_flash` | `dir flash:` | Contents of flash filesystem |
-| `dir_path` | `dir <path>` | Requires `path` arg |
+| `dir_path` | `dir <path>` | Optional `path` arg (default `flash:`) |
 | `show_filesystem` | `show filesystem` | Filesystem usage summary |
 | `show_inventory` | `show inventory` | Hardware inventory (cards, modules) |
 | `run_commands` | _(arbitrary exec-mode commands)_ | Pass `commands` as string or list |
@@ -71,12 +71,13 @@ These tasks run `show` commands and return the structured JSON response from the
 |---|---|---|---|
 | `section` | `str \| list[str]` | No | One or more section filters |
 | `all` | `bool` | No | If `true`, includes default and non-default config |
+| `include_defaults` | `bool` | No | Deprecated alias for `all` |
 
 **`dir_path`**
 
 | Arg | Type | Required | Description |
 |---|---|---|---|
-| `path` | `str` | Yes | Filesystem path (e.g. `flash:`, `bootflash:`) |
+| `path` | `str` | No | Filesystem path (default `flash:`; blank input also falls back to `flash:`) |
 
 **`run_commands`**
 
@@ -164,9 +165,9 @@ Roll back to a previous commit in EOS's configure session history.
 
 | Arg | Type | Default | Description |
 |---|---|---|---|
-| `n` | `int` | `1` | Number of commits to roll back |
+| `steps` | `int` | `1` | Number of commits to roll back |
 
-> **Note:** This uses `configure rollback <n>` which operates on EOS's configure-session commit history, not on checkpoint files. Use `configure_replace` to restore a checkpoint file.
+> **Note:** This runs `configure rollback <steps>` on EOS's configure-session commit history, not on checkpoint files. Use `configure_replace` to restore a checkpoint file.
 
 ### `save_config`
 

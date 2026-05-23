@@ -58,7 +58,8 @@ uv run ruff check .
 ### Tasks
 
 - Define task functions in `nornflow_arista/tasks/`.
-- Use the `@_eos_task` decorator for mutating tasks, `@_eos_getter` for read-only ones.
+- Use `@_eos_getter` for simple read-only tasks whose body is `(task, node) -> raw_output`.
+- Use `@_eos_task` for mutating tasks and for read-only tasks that need custom arguments or logic (for example `get_running_config`, `run_commands`).
 - Always honour `task.is_dry_run()` in mutating tasks.
 - Accept parameters as named function arguments (not via `task.params`).
 - Google-style docstrings with `Args`, `Returns`, and `Raises` sections.
