@@ -1,6 +1,5 @@
 """Mutating Nornir tasks: EOS configuration and save via eAPI."""
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -11,20 +10,21 @@ from pyeapi.eapilib import CommandError
 from nornflow_arista.eos_api.exceptions import EapiConfigError
 from nornflow_arista.tasks.decorators import _eos_task
 from nornflow_arista.tasks.task_helpers import (
+    CommandsArg,
     _dry_run_skipped,
+    _flatten_template_context,
     _node_for_task,
-    _params,
     _result_failed,
     _result_ok,
-    _flatten_template_context,
 )
 
+
 @_eos_task
-def configure(task: Task) -> Result:
+def configure(task: Task, commands: CommandsArg) -> Result:
     """Push configuration lines in standard config mode (internally equivalent to
     'configure terminal' over eAPI).
 
-    Params:
+    Args:
         commands: Config lines as a string, a list of strings, or 'CliVariants'
             as supported by 'pyeapi' 'Node.config'.
 
@@ -32,21 +32,23 @@ def configure(task: Task) -> Result:
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would push configuration via configure terminal")
-    p = _params(task)
-    commands = p.get("commands")
-    if commands is None:
-        msg = 'Missing required task param "commands".'
-        return _result_failed(task, ValueError(msg))
     node = _node_for_task(task)
     out = node.config(commands)
     return _result_ok(task, out, changed=True)
 
 
 @_eos_task
-def configure_session(task: Task) -> Result:
+def configure_session(
+    task: Task,
+    commands: CommandsArg,
+    *,
+    commit: bool = True,
+    include_diff: bool = True,
+    session_name: str | None = None,
+) -> Result:
     """Apply configuration inside a 'configure session' and commit or abort.
 
-    Params:
+    Args:
         commands: Same as 'configure'.
         commit: If True (default), run 'commit'; otherwise 'abort' the session.
         include_diff: If True (default), include 'show session-config diffs' text.
@@ -57,18 +59,9 @@ def configure_session(task: Task) -> Result:
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would apply configuration in a configure session")
-    p = _params(task)
-    commands = p.get("commands")
-    if commands is None:
-        msg = 'Missing required task param "commands".'
-        return _result_failed(task, ValueError(msg))
-    commit = bool(p.get("commit", True))
-    include_diff = bool(p.get("include_diff", True))
-    session_name = p.get("session_name")
-
     node = _node_for_task(task)
-    if session_name is not None and str(session_name).strip():
-        node._session_name = str(session_name).strip()
+    if session_name and str(session_name).strip():
+        node._session_name = str(session_name).strip()  # noqa: SLF001
     node.configure_session()
     diff_text = None
     try:
@@ -93,52 +86,55 @@ def configure_session(task: Task) -> Result:
 
 
 @_eos_task
-def commit_session(task: Task) -> Result:
+def commit_session(task: Task, session_name: str) -> Result:
     """Commit a named configure session ('configure session <name>' + 'commit').
 
-    Params:
-        session_name: EOS configure session name to commit (required).
+    Args:
+        session_name: EOS configure session name to commit.
 
     Use when you need an explicit commit step in YAML.
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would commit configure session")
-    p = _params(task)
-    name = p.get("session_name")
-    if name is None or not str(name).strip():
-        msg = 'Missing required task param "session_name".'
+    if not str(session_name).strip():
+        msg = 'Task param "session_name" must be a non-empty string.'
         return _result_failed(task, ValueError(msg))
     node = _node_for_task(task)
-    label = str(name).strip()
+    label = str(session_name).strip()
     out = node.run_commands([f"configure session {label}", "commit"], encoding="text")
     return _result_ok(task, out, changed=True)
 
 
 @_eos_task
-def abort_session(task: Task) -> Result:
+def abort_session(task: Task, session_name: str) -> Result:
     """Abort a named configure session ('configure session <name>' + 'abort').
 
-    Params:
-        session_name: EOS configure session name to abort (required).
+    Args:
+        session_name: EOS configure session name to abort.
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would abort configure session")
-    p = _params(task)
-    name = p.get("session_name")
-    if name is None or not str(name).strip():
-        msg = 'Missing required task param "session_name".'
+    if not str(session_name).strip():
+        msg = 'Task param "session_name" must be a non-empty string.'
         return _result_failed(task, ValueError(msg))
     node = _node_for_task(task)
-    label = str(name).strip()
+    label = str(session_name).strip()
     out = node.run_commands([f"configure session {label}", "abort"], encoding="text")
     return _result_ok(task, out, changed=True)
 
 
 @_eos_task
-def configure_from_template(task: Task) -> Result:
+def configure_from_template(
+    task: Task,
+    *,
+    template_path: str | None = None,
+    template_string: str | None = None,
+    variables: dict[str, Any] | None = None,
+    encoding: str = "utf-8",
+) -> Result:
     """Render a Jinja2 template, then push the result with 'configure terminal'.
 
-    Params:
+    Args:
         template_path: Path to a template file on the runner filesystem (required unless
             'template_string' is set).
         template_string: Inline template (optional; wins over template_path when both set).
@@ -149,18 +145,12 @@ def configure_from_template(task: Task) -> Result:
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would render template and push configuration")
-    p = _params(task)
-    inline = p.get("template_string")
-    path_raw = p.get("template_path")
-    variables = p.get("variables")
-    if not isinstance(variables, dict):
-        variables = {}
-    encoding = p.get("encoding") or "utf-8"
+    tmpl_vars = variables if isinstance(variables, dict) else {}
 
-    if inline is not None and str(inline).strip():
-        tmpl_body = str(inline)
-    elif path_raw is not None and str(path_raw).strip():
-        path = Path(os.path.expanduser(str(path_raw).strip())).resolve()
+    if template_string and str(template_string).strip():
+        tmpl_body = str(template_string)
+    elif template_path and str(template_path).strip():
+        path = Path(str(template_path).strip()).expanduser().resolve()
         if not path.is_file():
             msg = f"template_path is not a file: {path}"
             return _result_failed(task, FileNotFoundError(msg))
@@ -171,7 +161,7 @@ def configure_from_template(task: Task) -> Result:
 
     env = Environment(undefined=StrictUndefined, autoescape=False)
     template = env.from_string(tmpl_body)
-    ctx = _flatten_template_context(task.host, variables)
+    ctx = _flatten_template_context(task.host, tmpl_vars)
     rendered = template.render(**ctx)
     node = _node_for_task(task)
     out = node.config(rendered)
@@ -179,10 +169,10 @@ def configure_from_template(task: Task) -> Result:
 
 
 @_eos_task
-def configure_replace(task: Task) -> Result:
+def configure_replace(task: Task, path: str) -> Result:
     """Replace running-config with contents from a file or URL the device can read.
 
-    Params:
+    Args:
         path: Location the switch can read (for example 'flash:myconfig.cfg'). Passed to
             'configure replace <path>'.
 
@@ -190,10 +180,8 @@ def configure_replace(task: Task) -> Result:
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would run configure replace")
-    p = _params(task)
-    path = p.get("path")
-    if path is None or not str(path).strip():
-        msg = 'Missing required task param "path".'
+    if not str(path).strip():
+        msg = 'Task param "path" must be a non-empty string.'
         return _result_failed(task, ValueError(msg))
     target = str(path).strip()
     node = _node_for_task(task)
@@ -202,20 +190,18 @@ def configure_replace(task: Task) -> Result:
 
 
 @_eos_task
-def create_checkpoint(task: Task) -> Result:
+def create_checkpoint(task: Task, name: str) -> Result:
     """Save running-config to a checkpoint file on flash.
 
-    Params:
-        name: Checkpoint basename (required). Written to 'flash:checkpoint_<name>'.
+    Args:
+        name: Checkpoint basename. Written to 'flash:checkpoint_<name>'.
 
     Dry-run does not open a connection.
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would copy running-config to checkpoint on flash")
-    p = _params(task)
-    name = p.get("name")
-    if name is None or not str(name).strip():
-        msg = 'Missing required task param "name".'
+    if not str(name).strip():
+        msg = 'Task param "name" must be a non-empty string.'
         return _result_failed(task, ValueError(msg))
     safe = str(name).strip().replace(" ", "_")
     dest = f"flash:checkpoint_{safe}"
@@ -225,18 +211,16 @@ def create_checkpoint(task: Task) -> Result:
 
 
 @_eos_task
-def rollback(task: Task) -> Result:
+def rollback(task: Task, steps: int = 1) -> Result:
     """Rollback the last configuration commit(s) ('configure rollback <n>').
 
-    Params:
+    Args:
         steps: Number of commits to roll back (default 1).
 
     Dry-run does not open a connection.
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would run configure rollback")
-    p = _params(task)
-    steps = p.get("steps", 1)
     try:
         n = int(steps)
     except (TypeError, ValueError):
@@ -264,13 +248,19 @@ def save_config(task: Task) -> Result:
 
 
 @_eos_task
-def copy_from_remote(task: Task) -> Result:
+def copy_from_remote(
+    task: Task,
+    *,
+    command: str | None = None,
+    source: str | None = None,
+    destination: str | None = None,
+) -> Result:
     """Tell the device to copy from a remote source into a local destination (pull).
 
     Runs a single 'copy' command in enable mode. Either pass 'command' as the full CLI line,
     or pass 'source' and 'destination' to build: 'copy <source> <destination>'.
 
-    Params:
+    Args:
         command: Full 'copy ...' line (optional; overrides 'source' / 'destination').
         source: Remote location the device can reach (used with 'destination').
         destination: Local path (for example 'flash:file.cfg').
@@ -282,17 +272,13 @@ def copy_from_remote(task: Task) -> Result:
             task,
             "would run copy from remote source to destination on device",
         )
-    p = _params(task)
-    command = p.get("command")
-    if command is not None and str(command).strip():
+    if command and str(command).strip():
         cmd = str(command).strip()
-    else:
-        source = p.get("source")
-        destination = p.get("destination")
-        if source is None or destination is None:
-            msg = 'Provide "command" or both "source" and "destination".'
-            return _result_failed(task, ValueError(msg))
+    elif source and destination:
         cmd = f"copy {source} {destination}"
+    else:
+        msg = 'Provide "command" or both "source" and "destination".'
+        return _result_failed(task, ValueError(msg))
     node = _node_for_task(task)
     out = node.enable(cmd)
     return _result_ok(task, out, changed=True)
