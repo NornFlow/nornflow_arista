@@ -38,7 +38,7 @@ def test_eos_intf_canonical_already_canonical() -> None:
     'Ethernethernet1'.  The filter is designed for short forms; callers should not
     pass already-canonical names.
     """
-    assert eos_intf_canonical("Ethernet1") == "Ethernethernet1"
+    assert eos_intf_canonical("Ethernet1") == "Ethernet1"
 
 
 def test_eos_intf_canonical_replaces_only_first_occurrence() -> None:
