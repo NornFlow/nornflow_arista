@@ -1,7 +1,7 @@
 [project]
 name = "nornflow-arista"
 version = "0.1.0"
-description = "NornFlow companion package for Arista EOS: tasks, workflows, blueprints, inventory filters, Jinja2 filters, and hooks built around pyeapi (eAPI). Install alongside NornFlow and declare the package in nornflow.yaml; no CLI entry points—automation runs through NornFlow."
+description = "NornFlow companion package for Arista EOS: Nornir tasks, blueprints, and a registered 'pyeapi' connection plugin over eAPI. Install alongside NornFlow and list under 'packages' in nornflow.yaml; no CLI commands—workflows run through NornFlow."
 readme = "README.md"
 authors = [
     { name = "Andre Lima", email = "andre@netcube.consulting" }
@@ -99,3 +99,6 @@ order-by-type = false
 combine-as-imports = true
 no-lines-before = ["local-folder"]
 known-first-party = ["nornflow_arista"]
+
+[project.entry-points."nornir.plugins.connections"]
+pyeapi = "nornflow_arista.eos_api.plugin:Pyeapi"
