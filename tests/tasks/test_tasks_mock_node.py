@@ -19,6 +19,25 @@ def test_get_facts_runs_show_version(mock_node_for_task: MagicMock, make_task) -
     node.enable.assert_called_once_with("show version")
 
 
+@patch("nornflow_arista.tasks.getters._node_for_task")
+def test_get_config_diff_passes_command_list(
+    mock_node_for_task: MagicMock,
+    make_task,
+) -> None:
+    """get_config_diff passes run_commands a list, per pyeapi convention."""
+    node = MagicMock()
+    node.run_commands.return_value = [{"output": "diff text"}]
+    mock_node_for_task.return_value = node
+    task = make_task()
+    result = run_task_like_nornir(getters.get_config_diff, task)
+    assert not result.failed
+    assert result.result == "diff text"
+    node.run_commands.assert_called_once_with(
+        ["show running-config diffs"],
+        encoding="text",
+    )
+
+
 @patch("nornflow_arista.tasks.config._node_for_task")
 def test_configure_marks_result_changed(mock_node_for_task: MagicMock, make_task) -> None:
     """Mutating configure sets changed=True on success."""
