@@ -214,3 +214,7 @@ __marimo__/
 
 # diffs file
 *diffs.txt
+
+.cursor/
+
+architectural_docs/
