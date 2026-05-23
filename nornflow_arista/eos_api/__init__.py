@@ -12,8 +12,8 @@ from nornflow_arista.eos_api.plugin import CONNECTION_NAME, Pyeapi
 
 __all__ = [
     "CONNECTION_NAME",
-    "EapiConfigError",
     "PYEAPI_CONNECTION_NAME",
+    "EapiConfigError",
     "Pyeapi",
     "connect_kwargs_from_host",
     "connect_kwargs_from_open",
