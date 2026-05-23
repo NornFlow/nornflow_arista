@@ -19,6 +19,7 @@ from nornflow_arista.eos_api.constants import (
     ENV_EAPI_PORT,
     ENV_EAPI_TRANSPORT,
     ENV_EAPI_USERNAME,
+    PYEAPI_CONNECTION_NAME,
 )
 from nornflow_arista.eos_api.exceptions import EapiConfigError
 
@@ -69,6 +70,27 @@ def host_data(host: Host) -> dict[str, Any]:
     return raw
 
 
+def merged_eapi_data(host: Host) -> dict[str, Any]:
+    """Merge 'host.data' with 'connection_options[pyeapi].extras'.
+
+    Connection-specific extras override top-level 'host.data' keys when both
+    define the same name. Used when opening the Nornir connection so 'eapi_*'
+    keys in inventory 'data' reach the connection plugin.
+
+    Args:
+        host: Nornir inventory host.
+
+    Returns:
+        Shallow merged mapping for eAPI option lookups.
+    """
+    data = dict(host_data(host))
+    params = host.get_connection_parameters(PYEAPI_CONNECTION_NAME)
+    extras = params.extras
+    if isinstance(extras, dict):
+        data.update(extras)
+    return data
+
+
 def non_empty_str(value: object | None) -> str | None:
     """Strip; return None if missing or blank.
 
@@ -110,6 +132,117 @@ def coerce_port(value: object | None) -> int | None:
         raise EapiConfigError(msg) from exc
 
 
+def resolve_hostname_from_values(host_label: str, hostname: str | None) -> str:
+    """Resolve device address from Nornir 'open()' args and environment.
+
+    Args:
+        host_label: Host name or hostname string for error messages.
+        hostname: Value passed into the connection plugin 'open()'.
+
+    Returns:
+        Non-empty hostname or IP.
+
+    Raises:
+        EapiConfigError: If no address can be resolved.
+    """
+    found = first_non_empty_str(hostname, os.environ.get(ENV_EAPI_HOST))
+
+    if found is not None:
+        return found
+
+    msg = (
+        f"Host {host_label!r}: set 'host.hostname', or environment {ENV_EAPI_HOST}, "
+        "to a non-empty address."
+    )
+    raise EapiConfigError(msg)
+
+
+def resolve_username_from_values(
+    host_label: str,
+    username: str | None,
+    data: dict[str, Any],
+) -> str:
+    """Resolve non-empty username from data, 'open()' arg, or environment.
+
+    Args:
+        host_label: Host name for error messages.
+        username: Value passed into the connection plugin 'open()'.
+        data: Merged 'host.data' and connection 'extras'.
+
+    Returns:
+        Non-empty username.
+
+    Raises:
+        EapiConfigError: If no non-empty username can be resolved.
+    """
+    found = first_non_empty_str(
+        data.get(DATA_KEY_USERNAME),
+        username,
+        os.environ.get(ENV_EAPI_USERNAME),
+    )
+    if found is not None:
+        return found
+    msg = (
+        f"Host {host_label!r}: set non-empty username via 'host.data[{DATA_KEY_USERNAME!r}]', "
+        f"'host.username', or {ENV_EAPI_USERNAME}."
+    )
+    raise EapiConfigError(msg)
+
+
+def resolve_password_from_values(
+    host_label: str,
+    password: str | None,
+    data: dict[str, Any],
+) -> str:
+    """Resolve password from data, 'open()' arg, or environment.
+
+    Args:
+        host_label: Host name for error messages.
+        password: Value passed into the connection plugin 'open()'.
+        data: Merged 'host.data' and connection 'extras'.
+
+    Returns:
+        Password string (may be '').
+
+    Raises:
+        EapiConfigError: If no password source is available.
+    """
+    if DATA_KEY_PASSWORD in data:
+        raw = data[DATA_KEY_PASSWORD]
+        if raw is not None:
+            return str(raw)
+
+    if password is not None:
+        return str(password)
+
+    if ENV_EAPI_PASSWORD in os.environ:
+        return os.environ[ENV_EAPI_PASSWORD]
+
+    msg = (
+        f"Host {host_label!r}: set password via 'host.data[{DATA_KEY_PASSWORD!r}]', "
+        f"'host.password', or {ENV_EAPI_PASSWORD}."
+    )
+    raise EapiConfigError(msg)
+
+
+def resolve_port_from_values(port: int | None, data: dict[str, Any]) -> int | None:
+    """Resolve TCP port from data, 'open()' arg, or environment.
+
+    Args:
+        port: Value passed into the connection plugin 'open()'.
+        data: Merged 'host.data' and connection 'extras'.
+
+    Returns:
+        TCP port, or None to let 'pyeapi' choose defaults for the transport.
+    """
+    result = first_not_none(
+        coerce_port(data.get(DATA_KEY_PORT)),
+        coerce_port(port),
+        coerce_port(os.environ.get(ENV_EAPI_PORT)),
+    )
+    return int(result) if result is not None else None
+
+
 def resolve_hostname(host: Host) -> str:
     """Resolve device address: 'host.hostname', then 'ENV_EAPI_HOST'.
 
@@ -122,16 +255,7 @@ def resolve_hostname(host: Host) -> str:
     Raises:
         EapiConfigError: If no non-empty value is found.
     """
-    found = first_non_empty_str(host.hostname, os.environ.get(ENV_EAPI_HOST))
-
-    if found is not None:
-        return found
-
-    msg = (
-        f"Host {host.name!r}: set 'host.hostname', or environment {ENV_EAPI_HOST}, "
-        "to a non-empty address."
-    )
-    raise EapiConfigError(msg)
+    return resolve_hostname_from_values(host.name, host.hostname)
 
 
 def resolve_transport(data: dict[str, Any]) -> str:
@@ -160,12 +284,7 @@ def resolve_port(host: Host, data: dict[str, Any]) -> int | None:
     Returns:
         TCP port, or None to let 'pyeapi' choose defaults for the transport.
     """
-    result = first_not_none(
-        coerce_port(data.get(DATA_KEY_PORT)),
-        coerce_port(host.port),
-        coerce_port(os.environ.get(ENV_EAPI_PORT)),
-    )
-    return int(result) if result is not None else None
+    return resolve_port_from_values(host.port, data)
 
 
 def resolve_username(host: Host, data: dict[str, Any]) -> str:
@@ -181,18 +300,7 @@ def resolve_username(host: Host, data: dict[str, Any]) -> str:
     Raises:
         EapiConfigError: If no non-empty username can be resolved.
     """
-    found = first_non_empty_str(
-        data.get(DATA_KEY_USERNAME),
-        host.username,
-        os.environ.get(ENV_EAPI_USERNAME),
-    )
-    if found is not None:
-        return found
-    msg = (
-        f"Host {host.name!r}: set non-empty username via 'host.data[{DATA_KEY_USERNAME!r}]', "
-        f"'host.username', or {ENV_EAPI_USERNAME}."
-    )
-    raise EapiConfigError(msg)
+    return resolve_username_from_values(host.name, host.username, data)
 
 
 def resolve_password(host: Host, data: dict[str, Any]) -> str:
@@ -208,22 +316,7 @@ def resolve_password(host: Host, data: dict[str, Any]) -> str:
     Raises:
         EapiConfigError: If no password source is available.
     """
-    if DATA_KEY_PASSWORD in data:
-        raw = data[DATA_KEY_PASSWORD]
-        if raw is not None:
-            return str(raw)
-
-    if host.password is not None:
-        return str(host.password)
-
-    if ENV_EAPI_PASSWORD in os.environ:
-        return os.environ[ENV_EAPI_PASSWORD]
-
-    msg = (
-        f"Host {host.name!r}: set password via 'host.data[{DATA_KEY_PASSWORD!r}]', "
-        f"'host.password', or {ENV_EAPI_PASSWORD}."
-    )
-    raise EapiConfigError(msg)
+    return resolve_password_from_values(host.name, host.password, data)
 
 
 def optional_str_from_data_or_env(
