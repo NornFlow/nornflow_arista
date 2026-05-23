@@ -15,19 +15,17 @@
 
 - One eAPI session is opened per host per run, then reused across all tasks.
 - Sessions are closed cleanly by `nornir.close_connections()` at the end of the run.
-- Dry-run mode never opens a socket.
+- Mutating tasks honour dry-run and skip opening a connection; read-only getter tasks still connect and run their commands.
 
 The plugin is registered automatically via the `nornir.plugins.connections` entry-point in `pyproject.toml`. No manual registration is needed after `pip install`.
 
 ## Inventory contract
 
-Connection settings are resolved in this order for each field:
+Connection settings are merged from `host.data` and `connection_options.pyeapi.extras` (extras override `host.data` for the same key), then resolved per field from that merged mapping, standard Nornir host attributes where applicable, environment variables (`NORNFLOW_ARISTA_EAPI_*`), and package defaults.
 
-1. `host.data` key (prefixed `eapi_*`)
-2. Environment variable (`NORNFLOW_ARISTA_EAPI_*`)
-3. Package default (where one exists)
+There is no `eapi_hostname` key: the device address comes from `host.hostname`, then `NORNFLOW_ARISTA_EAPI_HOST`. Username, password, and port follow the same pattern when the corresponding `eapi_*` key is absent: `host.username`, `host.password`, and `host.port` are tried before the matching environment variable.
 
-If neither source provides a required field (username, password), `EapiConfigError` is raised before a connection is attempted.
+If a required field (hostname, username, password) cannot be resolved, `EapiConfigError` is raised before a connection is attempted.
 
 ### Full reference
 
@@ -41,8 +39,6 @@ If neither source provides a required field (username, password), `EapiConfigErr
 | `eapi_key_file` | `NORNFLOW_ARISTA_EAPI_KEY_FILE` | (optional) | TLS client private key path |
 | `eapi_cert_file` | `NORNFLOW_ARISTA_EAPI_CERT_FILE` | (optional) | TLS client certificate path |
 | `eapi_ca_file` | `NORNFLOW_ARISTA_EAPI_CA_FILE` | (optional) | CA bundle path for server verification |
-
-`host.hostname`, `host.username`, `host.password`, and `host.port` are also read as fallbacks for the corresponding fields if the `eapi_*` key is absent.
 
 ### Example host
 

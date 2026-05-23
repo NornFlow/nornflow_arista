@@ -130,7 +130,7 @@ workflow:
         param: "{{ my_var }}"
 ```
 
-Place workflow files under a directory listed in `local_workflows` in `nornflow.yaml`. NornFlow discovers them by filename (without the `.yaml` extension).
+Ship workflows inside a companion package via `packages:` in `nornflow.yaml`, or place custom files under a directory listed in `local_workflows`. In both cases, invoke a workflow from the CLI with its filename including the `.yaml` extension (for example `nornflow run my_workflow.yaml`).
 
 ### Failure strategies
 

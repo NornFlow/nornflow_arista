@@ -153,6 +153,7 @@ def get_running_config(
     task: Task,
     section: str | list[str] | None = None,
     all: bool = False,
+    include_defaults: bool = False,
 ) -> Result:
     """Return running configuration as text, optionally filtered by section(s).
 
@@ -160,9 +161,10 @@ def get_running_config(
         section: If set, runs 'show running-config section <section>'. A list repeats
             the section keyword for each entry (EOS multi-section syntax).
         all: If True, append 'all' to include default statements where supported.
+        include_defaults: Deprecated alias for ``all``; kept for backward compatibility.
     """
     node = _node_for_task(task)
-    sections: list[str] = []
+    sections = []
     if section is not None:
         parts = section if isinstance(section, list) else [section]
         for part in parts:
@@ -170,12 +172,13 @@ def get_running_config(
             if label:
                 sections.append(label)
 
+    include_all = all or include_defaults
     params = None
     if sections:
         params = " ".join(f"section {label}" for label in sections)
-        if all:
+        if include_all:
             params += " all"
-    elif all:
+    elif include_all:
         params = "all"
     cfg = node.get_config("running-config", params=params, as_string=True)
     return _result_ok(task, cfg)
