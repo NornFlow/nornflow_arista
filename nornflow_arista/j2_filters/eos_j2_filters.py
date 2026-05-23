@@ -4,34 +4,36 @@ Register the package under 'packages' in nornflow.yaml so NornFlow loads
 these filters into the Jinja2 environment used by workflows and blueprints.
 """
 
+_INTF_PREFIXES = {
+    "gi": "GigabitEthernet",
+    "te": "TenGigabitEthernet",
+    "fo": "FortyGigabitEthernet",
+    "hu": "HundredGigabitEthernet",
+    "et": "Ethernet",
+    "po": "Port-Channel",
+    "vl": "Vlan",
+    "lo": "Loopback",
+    "ma": "Management",
+}
+
 
 def eos_intf_canonical(name: str) -> str:
     """Convert a short interface name to its canonical EOS form.
 
-    Accepts common short forms used in inventory or show output and returns
-    the full interface name that EOS expects in configuration.
+    Matching is case-insensitive so 'gi0/1', 'Gi0/1', and 'GI0/1' all
+    produce 'GigabitEthernet0/1'. Already-canonical names are returned
+    unchanged.
 
     Args:
-        name: Short interface name (for example 'Gi0/1', 'Eth3/1', 'Po12').
+        name: Short or canonical interface name.
 
     Returns:
-        Canonical name (for example 'GigabitEthernet0/1', 'Ethernet3/1',
-        'Port-Channel12').
+        Canonical EOS interface name, or the original string if no prefix matches.
     """
-    mapping = {
-        "Gi": "GigabitEthernet",
-        "Te": "TenGigabitEthernet",
-        "Fo": "FortyGigabitEthernet",
-        "Hu": "HundredGigabitEthernet",
-        "Et": "Ethernet",
-        "Po": "Port-Channel",
-        "Vl": "Vlan",
-        "Lo": "Loopback",
-        "Ma": "Management",
-    }
-    for short, full in mapping.items():
-        if name.startswith(short):
-            return name.replace(short, full, 1)
+    name_lower = name.lower()
+    for short_lower, full in _INTF_PREFIXES.items():
+        if name_lower.startswith(short_lower) and not name_lower.startswith(full.lower()):
+            return full + name[len(short_lower):]
     return name
 
 
@@ -46,15 +48,21 @@ def eos_vlan_expand(spec: str) -> list[int]:
 
     Returns:
         Sorted list of VLAN IDs.
+
+    Raises:
+        ValueError: If a range is reversed (start > end).
     """
-    vlans: set[int] = set()
+    vlans = set()
     for part in spec.split(","):
         part = part.strip()
         if not part:
             continue
         if "-" in part:
             start, end = part.split("-", 1)
-            vlans.update(range(int(start), int(end) + 1))
+            s, e = int(start), int(end)
+            if s > e:
+                raise ValueError(f"Invalid VLAN range '{part}': start {s} is greater than end {e}")
+            vlans.update(range(s, e + 1))
         else:
             vlans.add(int(part))
     return sorted(vlans)
