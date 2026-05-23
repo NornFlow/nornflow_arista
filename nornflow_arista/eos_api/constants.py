@@ -1,6 +1,7 @@
 """Constants for mapping Nornir hosts to Arista eAPI ('pyeapi') connections.
 
-Resolution order for each setting (implemented in 'client.py'):
+Resolution order for each setting (implemented in 'helpers.py'; kwargs assembled in
+'connect.py'):
 
 1. Nornir host fields and 'host.data' keys using the 'eapi_*' prefix (see DATA_KEY_*).
 2. Environment variables (see ENV_*), if set.
