@@ -151,23 +151,31 @@ def show_inventory(task: Task, node: Node) -> Result:
 @_eos_task
 def get_running_config(
     task: Task,
-    section: str | None = None,
-    include_defaults: bool = False,
+    section: str | list[str] | None = None,
+    all: bool = False,
 ) -> Result:
-    """Return running configuration as text, optionally a single section.
+    """Return running configuration as text, optionally filtered by section(s).
 
     Args:
-        section: If set, runs 'show running-config section <section>' (EOS syntax).
-        include_defaults: If True, pass 'all' to include default statements where supported.
+        section: If set, runs 'show running-config section <section>'. A list repeats
+            the section keyword for each entry (EOS multi-section syntax).
+        all: If True, append 'all' to include default statements where supported.
     """
     node = _node_for_task(task)
+    sections: list[str] = []
+    if section is not None:
+        parts = section if isinstance(section, list) else [section]
+        for part in parts:
+            label = str(part).strip()
+            if label:
+                sections.append(label)
+
     params = None
-    section_label = str(section).strip() if section else ""
-    if section_label:
-        params = f"section {section_label}"
-        if include_defaults:
+    if sections:
+        params = " ".join(f"section {label}" for label in sections)
+        if all:
             params += " all"
-    elif include_defaults:
+    elif all:
         params = "all"
     cfg = node.get_config("running-config", params=params, as_string=True)
     return _result_ok(task, cfg)
