@@ -1,0 +1,8 @@
+workflow:
+  name: daily_snapshot
+  description: >
+    Capture a full operational snapshot using the state_snapshot blueprint
+    and store key facts for later comparison or auditing.
+
+  tasks:
+    - blueprint: state_snapshot.yaml

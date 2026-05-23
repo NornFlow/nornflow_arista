@@ -1,0 +1,29 @@
+workflow:
+  name: safe_config_change
+  description: >
+    Create a checkpoint, apply configuration from a template, and restore the
+    checkpoint on hosts where the change step failed.
+
+  failure_strategy: run-all
+
+  vars:
+    checkpoint_name: "pre_change_checkpoint"  # required: pass via --vars or domain vars, e.g. "checkpoint_name=pre_change_20260523_1900"
+    change_template_path: ~                   # required: pass via --vars or domain vars, e.g. "change_template_path=templates/my_change.j2"
+
+  tasks:
+    - name: create_checkpoint
+      args:
+        name: "{{ checkpoint_name }}"
+      set_to:
+        checkpoint_dest: "destination"
+
+    - name: configure_from_template
+      args:
+        template_path: "{{ change_template_path }}"
+      set_to:
+        configure_failed: "_failed"
+
+    - name: configure_replace
+      if: "{{ configure_failed }}"
+      args:
+        path: "{{ checkpoint_dest }}"
