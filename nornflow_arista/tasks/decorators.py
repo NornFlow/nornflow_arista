@@ -10,6 +10,7 @@ All names start with '_' so NornFlow's catalog never registers them.
 
 from collections.abc import Callable
 from functools import wraps
+from typing import Any
 
 from nornir.core.task import Result, Task
 from pyeapi.eapilib import CommandError
@@ -22,44 +23,34 @@ from nornflow_arista.tasks.task_helpers import (
 )
 
 
-def _eos_task(fn: Callable[[Task], Result]) -> Callable[[Task], Result]:
+def _eos_task(fn: Callable[..., Result]) -> Callable[..., Result]:
     """Catch expected eAPI errors and return a failed 'Result'.
 
-    Other exceptions propagate. '@wraps' preserves name, doc, and annotations
-    so NornFlow discovery still sees a proper '(task: Task) -> Result' task.
+    Forwards workflow ``args`` as ``**kwargs`` to the wrapped task.
     """
 
     @wraps(fn)
-    def wrapper(task: Task) -> Result:
+    def wrapper(task: Task, **kwargs: Any) -> Result:
         try:
-            return fn(task)
+            return fn(task, **kwargs)
         except (EapiConfigError, CommandError, TypeError, ValueError) as exc:
             return _result_failed(task, exc)
 
     return wrapper
 
 
-def _with_node(fn):
-    """Inject a pyeapi 'Node' as second arg; wrap the raw return in '_result_ok'.
-
-    The inner function signature is '(task, node) -> <raw output>'.
-    Raise inside the body to signal failure (pair with '_eos_task' on top).
-    """
+def _with_node(fn: Callable[..., Any]) -> Callable[..., Result]:
+    """Inject a pyeapi 'Node' as second arg; wrap the raw return in '_result_ok'."""
 
     @wraps(fn)
-    def wrapper(task: Task) -> Result:
+    def wrapper(task: Task, **kwargs: Any) -> Result:
         node = _node_for_task(task)
-        raw = fn(task, node)
+        raw = fn(task, node, **kwargs)
         return _result_ok(task, raw)
 
     return wrapper
 
 
-def _eos_getter(fn):
-    """'_eos_task' + '_with_node' in one decorator.
-
-    Use for read-only tasks whose body receives '(task, node)' and returns raw
-    output. Errors become failed 'Result' objects; raw output becomes
-    '_result_ok(task, raw)'.
-    """
+def _eos_getter(fn: Callable[..., Any]) -> Callable[..., Result]:
+    """'_eos_task' + '_with_node' in one decorator."""
     return _eos_task(_with_node(fn))

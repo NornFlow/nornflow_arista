@@ -5,9 +5,8 @@ from pyeapi.client import Node
 
 from nornflow_arista.tasks.decorators import _eos_getter, _eos_task
 from nornflow_arista.tasks.task_helpers import (
+    CommandsArg,
     _node_for_task,
-    _params,
-    _result_failed,
     _result_ok,
 )
 
@@ -61,21 +60,22 @@ def get_ospf_neighbors(task: Task, node: Node) -> Result:
 
 
 @_eos_task
-def get_ip_route(task: Task) -> Result:
+def get_ip_route(
+    task: Task,
+    vrf: str | None = None,
+    prefix: str | None = None,
+) -> Result:
     """Run 'show ip route' with optional VRF or prefix filter.
 
-    Params:
+    Args:
         vrf: VRF name (adds 'vrf <name>' to the command).
         prefix: Optional IPv4/IPv6 prefix to append (device-specific filtering).
     """
-    p = _params(task)
-    vrf = p.get("vrf")
-    prefix = p.get("prefix")
     cmd = "show ip route"
-    if vrf is not None and str(vrf).strip():
+    if vrf and str(vrf).strip():
         cmd += f" vrf {vrf}"
-    if prefix is not None and str(prefix).strip():
-        cmd += f" {prefix.strip()}"
+    if prefix and str(prefix).strip():
+        cmd += f" {str(prefix).strip()}"
     node = _node_for_task(task)
     out = node.enable(cmd)
     return _result_ok(task, out)
@@ -96,14 +96,12 @@ def get_vxlan_vteps(task: Task, node: Node) -> Result:
 
 
 @_eos_task
-def get_lldp_neighbors(task: Task) -> Result:
+def get_lldp_neighbors(task: Task, detail: bool = False) -> Result:
     """Run LLDP neighbor listing; optional detail view.
 
-    Params:
+    Args:
         detail: If True (default False), run 'show lldp neighbors detail'.
     """
-    p = _params(task)
-    detail = bool(p.get("detail", False))
     cmd = "show lldp neighbors detail" if detail else "show lldp neighbors"
     node = _node_for_task(task)
     out = node.enable(cmd)
@@ -147,19 +145,20 @@ def show_inventory(task: Task, node: Node) -> Result:
 
 
 @_eos_task
-def get_running_config(task: Task) -> Result:
+def get_running_config(
+    task: Task,
+    section: str | None = None,
+    include_defaults: bool = False,
+) -> Result:
     """Return running configuration as text, optionally a single section.
 
-    Params:
+    Args:
         section: If set, runs 'show running-config section <section>' (EOS syntax).
         include_defaults: If True, pass 'all' to include default statements where supported.
     """
-    p = _params(task)
-    section = p.get("section")
-    include_defaults = bool(p.get("include_defaults", False))
     node = _node_for_task(task)
     params = None
-    if section is not None and str(section).strip():
+    if section and str(section).strip():
         params = f"section {section.strip()}"
         if include_defaults:
             params += " all"
@@ -187,33 +186,27 @@ def get_config_diff(task: Task) -> Result:
 
 
 @_eos_task
-def run_commands(task: Task) -> Result:
-    """Run arbitrary exec-mode commands from 'task.params' key 'commands'.
+def run_commands(task: Task, commands: CommandsArg) -> Result:
+    """Run arbitrary exec-mode commands.
 
-    Params:
+    Args:
         commands: A single command string or a list of command strings.
     """
-    p = _params(task)
-    commands = p.get("commands")
-    if commands is None:
-        msg = 'Missing required task param "commands".'
-        return _result_failed(task, ValueError(msg))
     node = _node_for_task(task)
     out = node.enable(commands)
     return _result_ok(task, out)
 
 
 @_eos_task
-def dir_path(task: Task) -> Result:
+def dir_path(task: Task, path: str = "flash:") -> Result:
     """List a path on the device ('dir <path>').
 
-    Params:
+    Args:
         path: Path to list (default 'flash:').
     """
-    p = _params(task)
-    path = p.get("path", "flash:")
-    if path is None or str(path).strip() == "":
-        path = "flash:"
+    listing_path = path
+    if not listing_path or not str(listing_path).strip():
+        listing_path = "flash:"
     node = _node_for_task(task)
-    out = node.enable(f"dir {path}")
+    out = node.enable(f"dir {listing_path}")
     return _result_ok(task, out)
