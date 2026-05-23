@@ -18,14 +18,21 @@ from nornir.core.task import Result, Task
 from pyeapi.client import Node
 from pyeapi.utils import CliVariants
 
-from nornflow_arista.eos_api.connect import node_from_host
+from nornflow_arista.eos_api.connect import ensure_pyeapi_connection, node_from_host
 
 CommandsArg = str | list[str] | CliVariants
 
 
 def _node_for_task(task: Task, **connect_overrides: Any) -> Node:
-    """Return a pyeapi 'Node' for the Nornir host carried by 'task'."""
-    return node_from_host(task.host, **connect_overrides)
+    """Return a pyeapi 'Node' for the task host, reusing Nornir's connection cache.
+
+    Uses the 'pyeapi' connection plugin so NornFlow/Nornir 'close_connections()'
+    can tear down sessions. Pass 'connect_overrides' only when you intentionally
+    need a one-off connection outside the cache (for example a custom SSL context).
+    """
+    if connect_overrides:
+        return node_from_host(task.host, **connect_overrides)
+    return ensure_pyeapi_connection(task.host, task.nornir.config)
 
 
 def _result_ok(task: Task, result: Any, *, changed: bool = False) -> Result:
