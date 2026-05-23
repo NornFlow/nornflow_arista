@@ -1,5 +1,6 @@
 """Mutating Nornir tasks: EOS configuration and save via eAPI."""
 
+import contextlib
 from pathlib import Path
 from typing import Any
 
@@ -10,12 +11,12 @@ from pyeapi.eapilib import CommandError
 from nornflow_arista.eos_api.exceptions import EapiConfigError
 from nornflow_arista.tasks.decorators import _eos_task
 from nornflow_arista.tasks.task_helpers import (
-    CommandsArg,
     _dry_run_skipped,
     _flatten_template_context,
     _node_for_task,
     _result_failed,
     _result_ok,
+    CommandsArg,
 )
 
 
@@ -73,10 +74,8 @@ def configure_session(
         else:
             node.abort()
     except (CommandError, EapiConfigError, TypeError, ValueError):
-        try:
+        with contextlib.suppress(CommandError):
             node.abort()
-        except CommandError:
-            pass
         raise
 
     payload: dict[str, Any] = {"committed": commit}
@@ -159,7 +158,8 @@ def configure_from_template(
         msg = 'Provide "template_string" or "template_path".'
         return _result_failed(task, ValueError(msg))
 
-    env = Environment(undefined=StrictUndefined, autoescape=False)
+    # Output is EOS CLI, not HTML; autoescape would corrupt config syntax.
+    env = Environment(undefined=StrictUndefined, autoescape=False)  # noqa: S701
     template = env.from_string(tmpl_body)
     ctx = _flatten_template_context(task.host, tmpl_vars)
     rendered = template.render(**ctx)

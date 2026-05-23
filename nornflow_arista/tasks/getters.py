@@ -5,9 +5,9 @@ from pyeapi.client import Node
 
 from nornflow_arista.tasks.decorators import _eos_getter, _eos_task
 from nornflow_arista.tasks.task_helpers import (
-    CommandsArg,
     _node_for_task,
     _result_ok,
+    CommandsArg,
 )
 
 
