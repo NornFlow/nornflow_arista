@@ -65,3 +65,56 @@ def test_get_lldp_neighbors_detail_true(make_task) -> None:
         task = make_task(detail=True)
         result = run_task_like_nornir(getters.get_lldp_neighbors, task)
         node.enable.assert_called_once_with("show lldp neighbors detail")
+
+
+@patch("nornflow_arista.tasks.getters._node_for_task")
+def test_get_ip_route_coerces_non_string_vrf(
+    mock_node_for_task: MagicMock,
+    make_task,
+) -> None:
+    """VRF values are normalized with str() before building the CLI."""
+    node = MagicMock()
+    mock_node_for_task.return_value = node
+    task = make_task(vrf=42)
+    result = run_task_like_nornir(getters.get_ip_route, task)
+    assert not result.failed
+    node.enable.assert_called_once_with("show ip route vrf 42")
+
+
+@patch("nornflow_arista.tasks.getters._node_for_task")
+def test_get_running_config_coerces_non_string_section(
+    mock_node_for_task: MagicMock,
+    make_task,
+) -> None:
+    """Section values are normalized with str() for get_config params."""
+    node = MagicMock()
+    node.get_config.return_value = "hostname sw1"
+    mock_node_for_task.return_value = node
+    section = type("Section", (), {"__str__": lambda self: "router bgp"})()
+    task = make_task(section=section)
+    result = run_task_like_nornir(getters.get_running_config, task)
+    assert not result.failed
+    node.get_config.assert_called_once_with(
+        "running-config",
+        params="section router bgp",
+        as_string=True,
+    )
+
+
+@patch("nornflow_arista.tasks.getters._node_for_task")
+def test_get_running_config_whitespace_section_with_defaults(
+    mock_node_for_task: MagicMock,
+    make_task,
+) -> None:
+    """Whitespace-only section with include_defaults uses params='all', not None + ' all'."""
+    node = MagicMock()
+    node.get_config.return_value = "hostname sw1"
+    mock_node_for_task.return_value = node
+    task = make_task(section="  ", include_defaults=True)
+    result = run_task_like_nornir(getters.get_running_config, task)
+    assert not result.failed
+    node.get_config.assert_called_once_with(
+        "running-config",
+        params="all",
+        as_string=True,
+    )

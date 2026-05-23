@@ -72,10 +72,14 @@ def get_ip_route(
         prefix: Optional IPv4/IPv6 prefix to append (device-specific filtering).
     """
     cmd = "show ip route"
-    if vrf and str(vrf).strip():
-        cmd += f" vrf {vrf}"
-    if prefix and str(prefix).strip():
-        cmd += f" {str(prefix).strip()}"
+    if vrf:
+        vrf_label = str(vrf).strip()
+        if vrf_label:
+            cmd += f" vrf {vrf_label}"
+    if prefix:
+        prefix_label = str(prefix).strip()
+        if prefix_label:
+            cmd += f" {prefix_label}"
     node = _node_for_task(task)
     out = node.enable(cmd)
     return _result_ok(task, out)
@@ -158,8 +162,9 @@ def get_running_config(
     """
     node = _node_for_task(task)
     params = None
-    if section and str(section).strip():
-        params = f"section {section.strip()}"
+    section_label = str(section).strip() if section else ""
+    if section_label:
+        params = f"section {section_label}"
         if include_defaults:
             params += " all"
     elif include_defaults:
@@ -180,7 +185,7 @@ def get_startup_config(task: Task) -> Result:
 def get_config_diff(task: Task) -> Result:
     """Show differences between running-config and startup-config ('show running-config diffs')."""
     node = _node_for_task(task)
-    out = node.run_commands("show running-config diffs", encoding="text")
+    out = node.run_commands(["show running-config diffs"], encoding="text")
     text = str(out[0].get("output", ""))
     return _result_ok(task, text)
 
