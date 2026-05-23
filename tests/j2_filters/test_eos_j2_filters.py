@@ -32,12 +32,7 @@ def test_eos_intf_canonical_unknown_prefix_passthrough() -> None:
 
 
 def test_eos_intf_canonical_already_canonical() -> None:
-    """Document the known behaviour when a canonical name matches a short prefix.
-
-    'Ethernet1'.startswith('Et') is True, so replace('Et', 'Ethernet', 1) produces
-    'Ethernethernet1'.  The filter is designed for short forms; callers should not
-    pass already-canonical names.
-    """
+    """Already-canonical interface names are returned unchanged."""
     assert eos_intf_canonical("Ethernet1") == "Ethernet1"
 
 
