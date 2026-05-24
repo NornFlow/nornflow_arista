@@ -73,10 +73,10 @@ def configure_session(
             node.commit()
         else:
             node.abort()
-    except (CommandError, EapiConfigError, TypeError, ValueError):
-        with contextlib.suppress(CommandError):
+    except (CommandError, EapiConfigError, TypeError, ValueError) as exc:
+        with contextlib.suppress(Exception):
             node.abort()
-        raise
+        raise exc
 
     payload: dict[str, Any] = {"committed": commit}
     if include_diff:
