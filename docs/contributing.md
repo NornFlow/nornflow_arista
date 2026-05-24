@@ -101,7 +101,7 @@ uv run ruff check .
 
 ### Style
 
-- Python >= 3.10 type hints in all function signatures (`str | None`, not `Optional[str]`).
+- Python 3.10 through 3.14; use modern type hints in all function signatures (`str | None`, not `Optional[str]`).
 - No type hints in function bodies.
 - No `from __future__ import annotations`.
 - Line length: 110 characters.
