@@ -34,7 +34,7 @@ The most impactful areas, roughly in priority order:
 ## Development setup
 
 ```bash
-git clone https://github.com/andrelima/nornflow_arista
+git clone https://github.com/NornFlow/nornflow_arista
 cd nornflow_arista
 uv sync --group dev
 ```
