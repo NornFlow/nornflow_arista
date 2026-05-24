@@ -132,7 +132,7 @@ def coerce_port(value: object | None) -> int | None:
             msg = f"eAPI port must be an integer, got {value!r}"
             raise EapiConfigError(msg) from exc
 
-    if not 1 <= port <= 65535:
+    if not 1 <= port <= 65535:  # noqa: PLR2004
         msg = f"eAPI port must be between 1 and 65535, got {port!r}"
         raise EapiConfigError(msg)
     return port
