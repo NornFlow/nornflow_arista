@@ -4,9 +4,7 @@
 
 - [daily_snapshot](#daily_snapshot)
 - [safe_config_change](#safe_config_change)
-- [Writing your own workflows](#writing-your-own-workflows)
-- [Failure strategies](#failure-strategies)
-- [Hooks available in tasks](#hooks-available-in-tasks)
+- [Adding your own workflows](#adding-your-own-workflows)
 
 ---
 
@@ -111,47 +109,9 @@ No connections are opened; each mutating task returns a skipped result.
 
 ---
 
-## Writing your own workflows
+## Adding your own workflows
 
-A workflow file requires a root `workflow:` key. Minimal structure:
-
-```yaml
-workflow:
-  name: my_workflow
-  description: >
-    Optional human-readable description.
-
-  vars:
-    my_var: default_value
-
-  tasks:
-    - name: some_task
-      args:
-        param: "{{ my_var }}"
-```
-
-Ship workflows inside a companion package via `packages:` in `nornflow.yaml`, or place custom files under a directory listed in `local_workflows`. In both cases, invoke a workflow from the CLI with its filename including the `.yaml` extension (for example `nornflow run my_workflow.yaml`).
-
-### Failure strategies
-
-| Strategy | Behaviour |
-|---|---|
-| `fail-fast` (default) | Stop processing the task list on the first failed host |
-| `skip-failed` | Skip failed hosts for subsequent tasks but continue |
-| `run-all` | Run all tasks on all hosts regardless of failures |
-
-`run-all` is the right choice when you need a cleanup or rollback step to always run.
-
-### Hooks available in tasks
-
-| Hook | Description |
-|---|---|
-| `if` | Jinja2 expression; task runs only if it evaluates truthy |
-| `set_to` | Store a value from the task result into a runtime variable |
-
-`set_to` with value `"_result"` stores `Result.result`; with `"_failed"` stores `Result.failed`.
-
-See the NornFlow [hooks guide](https://github.com/theandrelima/nornflow/blob/main/docs/hooks_guide.md) for the full reference.
+Workflows are YAML files with a root `workflow:` key. See [Contributing](contributing.md) for the conventions this package uses.
 
 ---
 

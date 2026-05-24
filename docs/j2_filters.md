@@ -8,12 +8,21 @@
 
 ---
 
-`nornflow-arista` provides EOS-specific Jinja2 filters that are loaded automatically into NornFlow's template environment when `nornflow_arista.j2_filters` is listed under `packages` in `nornflow.yaml`.
+`nornflow-arista` provides EOS-specific Jinja2 filters. Declare the installed companion package under `packages` in `nornflow.yaml`; NornFlow loads filter functions from the package's `j2_filters` tree (see [NornFlow `packages` setting](https://github.com/theandrelima/nornflow/blob/develop/docs/nornflow_settings.md#packages)).
 
 ```yaml
-# nornflow.yaml
+# nornflow.yaml — all asset types from the package (includes j2_filters)
 packages:
-  - nornflow_arista.j2_filters
+  - name: nornflow_arista
+```
+
+To load only Jinja2 filters:
+
+```yaml
+packages:
+  - name: nornflow_arista
+    include:
+      - j2_filters
 ```
 
 Once loaded, filters are available in all templates, blueprints, and workflow variable expressions.
@@ -95,7 +104,7 @@ vlan {{ vlan }}
 
 ## Adding your own filters
 
-Any Python function placed in a module under `nornflow_arista/j2_filters/` (or any module listed under `packages` in `nornflow.yaml`) is picked up by NornFlow as a Jinja2 filter, using the function name as the filter name.
+Any Python function in `nornflow_arista/j2_filters/` is registered as a Jinja2 filter (function name = filter name) when `nornflow_arista` is declared under `packages` with `j2_filters` in `include`, or with no `include` to load every asset type from the package.
 
 ```python
 # nornflow_arista/j2_filters/eos_j2_filters.py
