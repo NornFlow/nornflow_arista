@@ -116,20 +116,26 @@ def coerce_port(value: object | None) -> int | None:
         Port as 'int', or None if absent/blank.
 
     Raises:
-        EapiConfigError: If 'value' is present but not a valid integer.
+        EapiConfigError: If 'value' is present but not a valid TCP port (1-65535).
     """
     if value is None:
         return None
     if isinstance(value, int):
-        return value
-    text = str(value).strip()
-    if not text:
-        return None
-    try:
-        return int(text)
-    except ValueError as exc:
-        msg = f"eAPI port must be an integer, got {value!r}"
-        raise EapiConfigError(msg) from exc
+        port = value
+    else:
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            port = int(text)
+        except ValueError as exc:
+            msg = f"eAPI port must be an integer, got {value!r}"
+            raise EapiConfigError(msg) from exc
+
+    if not 1 <= port <= 65535:
+        msg = f"eAPI port must be between 1 and 65535, got {port!r}"
+        raise EapiConfigError(msg)
+    return port
 
 
 def resolve_hostname_from_values(host_label: str, hostname: str | None) -> str:
