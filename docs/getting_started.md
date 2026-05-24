@@ -14,7 +14,7 @@
 
 ## Prerequisites
 
-- Python >= 3.10
+- Python 3.10 through 3.14
 - [NornFlow](https://github.com/theandrelima/nornflow) installed and configured
 - Arista EOS devices reachable over eAPI (HTTP or HTTPS)
 
