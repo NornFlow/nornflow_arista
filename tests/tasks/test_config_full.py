@@ -62,6 +62,23 @@ def test_configure_session_aborts_on_command_error(mock_nft: MagicMock, make_tas
     node.abort.assert_called_once()
 
 
+@patch("nornflow_arista.tasks.config._node_for_task")
+def test_configure_session_reraises_original_error_when_abort_fails(
+    mock_nft: MagicMock, make_task
+) -> None:
+    """Cleanup abort failures must not mask the error that triggered them."""
+    original = CommandError(1000, "invalid command")
+    node = MagicMock()
+    node.config.side_effect = original
+    node.abort.side_effect = RuntimeError("abort transport failed")
+    mock_nft.return_value = node
+    task = make_task(commands="bad command")
+    result = run_task_like_nornir(config.configure_session, task)
+    assert result.failed
+    assert result.exception is original
+    node.abort.assert_called_once()
+
+
 def test_configure_session_dry_run(make_task) -> None:
     task = make_task(_test_dry_run=True, commands="!")
     result = run_task_like_nornir(config.configure_session, task)
