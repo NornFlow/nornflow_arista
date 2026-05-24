@@ -1,6 +1,6 @@
 # nornflow-arista
 
-[![CI](https://github.com/andrelima/nornflow_arista/actions/workflows/ci.yml/badge.svg)](https://github.com/andrelima/nornflow_arista/actions/workflows/ci.yml)
+[![CI](https://github.com/NornFlow/nornflow_arista/actions/workflows/ci.yml/badge.svg)](https://github.com/NornFlow/nornflow_arista/actions/workflows/ci.yml)
 ![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Linter: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
