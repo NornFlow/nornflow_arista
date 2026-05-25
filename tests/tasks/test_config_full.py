@@ -211,6 +211,92 @@ def test_configure_from_template_no_source_fails(make_task) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# safe_configure_from_template                                                  #
+# --------------------------------------------------------------------------- #
+
+
+def test_safe_configure_from_template_dry_run(make_task) -> None:
+    task = make_task(
+        _test_dry_run=True,
+        checkpoint_name="pre_change",
+        template_string="hostname leaf01",
+    )
+    result = run_task_like_nornir(config.safe_configure_from_template, task)
+    assert not result.failed
+    assert result.result["dry_run"] is True
+
+
+def test_safe_configure_from_template_empty_checkpoint_name_fails(make_task) -> None:
+    task = make_task(checkpoint_name="  ", template_string="hostname leaf01")
+    result = run_task_like_nornir(config.safe_configure_from_template, task)
+    assert result.failed
+
+
+@patch("nornflow_arista.tasks.config._node_for_task")
+def test_safe_configure_from_template_happy_path(mock_nft: MagicMock, make_task) -> None:
+    node = MagicMock()
+    node.run_commands.return_value = [{"output": ""}]
+    node.config.return_value = []
+    mock_nft.return_value = node
+    task = make_task(checkpoint_name="pre_change", template_string="hostname leaf01")
+    result = run_task_like_nornir(config.safe_configure_from_template, task)
+    assert not result.failed
+    assert result.changed is True
+    assert result.result["destination"] == "flash:checkpoint_pre_change"
+    node.run_commands.assert_called_once_with(
+        ["copy running-config flash:checkpoint_pre_change"], encoding="text"
+    )
+    node.config.assert_called_once_with("hostname leaf01")
+
+
+@patch("nornflow_arista.tasks.config._node_for_task")
+def test_safe_configure_from_template_rollback_on_apply_failure(
+    mock_nft: MagicMock, make_task
+) -> None:
+    node = MagicMock()
+    node.run_commands.return_value = [{"output": ""}]
+    node.config.side_effect = CommandError(1000, "invalid command")
+    mock_nft.return_value = node
+    task = make_task(checkpoint_name="pre_change", template_string="bad command")
+    result = run_task_like_nornir(config.safe_configure_from_template, task)
+    assert result.failed
+    assert isinstance(result.exception, CommandError)
+    assert node.run_commands.call_count == 2
+    node.run_commands.assert_any_call(
+        ["copy running-config flash:checkpoint_pre_change"], encoding="text"
+    )
+    node.run_commands.assert_any_call(
+        ["configure replace flash:checkpoint_pre_change"], encoding="text"
+    )
+
+
+@patch("nornflow_arista.tasks.config._node_for_task")
+def test_safe_configure_from_template_reraises_original_error_when_rollback_fails(
+    mock_nft: MagicMock, make_task
+) -> None:
+    original = CommandError(1000, "invalid command")
+    node = MagicMock()
+    node.run_commands.side_effect = [[{"output": ""}], RuntimeError("replace failed")]
+    node.config.side_effect = original
+    mock_nft.return_value = node
+    task = make_task(checkpoint_name="pre_change", template_string="bad command")
+    result = run_task_like_nornir(config.safe_configure_from_template, task)
+    assert result.failed
+    assert result.exception is original
+
+
+@patch("nornflow_arista.tasks.config._node_for_task")
+def test_safe_configure_from_template_template_error_skips_rollback(
+    mock_nft: MagicMock, make_task
+) -> None:
+    task = make_task(checkpoint_name="pre_change", template_path="/nonexistent/template.j2")
+    result = run_task_like_nornir(config.safe_configure_from_template, task)
+    assert result.failed
+    assert isinstance(result.exception, FileNotFoundError)
+    mock_nft.assert_not_called()
+
+
+# --------------------------------------------------------------------------- #
 # configure_replace                                                             #
 # --------------------------------------------------------------------------- #
 

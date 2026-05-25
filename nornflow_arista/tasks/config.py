@@ -20,6 +20,47 @@ from nornflow_arista.tasks.task_helpers import (
 )
 
 
+def _checkpoint_destination(name: str) -> str:
+    """Return the on-device flash path for a checkpoint basename."""
+    safe = str(name).strip().replace(" ", "_")
+    return f"flash:checkpoint_{safe}"
+
+
+def _render_template_body(
+    task: Task,
+    *,
+    template_path: str | None,
+    template_string: str | None,
+    variables: dict[str, Any] | None,
+    encoding: str,
+) -> str:
+    """Render a Jinja2 template to EOS CLI lines for the task host.
+
+    Raises:
+        FileNotFoundError: When template_path does not exist.
+        ValueError: When neither template_path nor template_string is provided.
+    """
+    tmpl_vars = variables if isinstance(variables, dict) else {}
+
+    if template_string and str(template_string).strip():
+        tmpl_body = str(template_string)
+    elif template_path and str(template_path).strip():
+        path = Path(str(template_path).strip()).expanduser().resolve()
+        if not path.is_file():
+            msg = f"template_path is not a file: {path}"
+            raise FileNotFoundError(msg)
+        tmpl_body = path.read_text(encoding=encoding)
+    else:
+        msg = 'Provide "template_string" or "template_path".'
+        raise ValueError(msg)
+
+    # Output is EOS CLI, not HTML; autoescape would corrupt config syntax.
+    env = Environment(undefined=StrictUndefined, autoescape=False)  # noqa: S701
+    template = env.from_string(tmpl_body)
+    ctx = _flatten_template_context(task.host, tmpl_vars)
+    return template.render(**ctx)
+
+
 @_eos_task
 def configure(task: Task, commands: CommandsArg) -> Result:
     """Push configuration lines in standard config mode (internally equivalent to
@@ -144,28 +185,86 @@ def configure_from_template(
     """
     if task.is_dry_run():
         return _dry_run_skipped(task, "would render template and push configuration")
-    tmpl_vars = variables if isinstance(variables, dict) else {}
-
-    if template_string and str(template_string).strip():
-        tmpl_body = str(template_string)
-    elif template_path and str(template_path).strip():
-        path = Path(str(template_path).strip()).expanduser().resolve()
-        if not path.is_file():
-            msg = f"template_path is not a file: {path}"
-            return _result_failed(task, FileNotFoundError(msg))
-        tmpl_body = path.read_text(encoding=encoding)
-    else:
-        msg = 'Provide "template_string" or "template_path".'
-        return _result_failed(task, ValueError(msg))
-
-    # Output is EOS CLI, not HTML; autoescape would corrupt config syntax.
-    env = Environment(undefined=StrictUndefined, autoescape=False)  # noqa: S701
-    template = env.from_string(tmpl_body)
-    ctx = _flatten_template_context(task.host, tmpl_vars)
-    rendered = template.render(**ctx)
+    try:
+        rendered = _render_template_body(
+            task,
+            template_path=template_path,
+            template_string=template_string,
+            variables=variables,
+            encoding=encoding,
+        )
+    except FileNotFoundError as exc:
+        return _result_failed(task, exc)
+    except ValueError as exc:
+        return _result_failed(task, exc)
     node = _node_for_task(task)
     out = node.config(rendered)
     return _result_ok(task, out, changed=True)
+
+
+@_eos_task
+def safe_configure_from_template(
+    task: Task,
+    checkpoint_name: str,
+    *,
+    template_path: str | None = None,
+    template_string: str | None = None,
+    variables: dict[str, Any] | None = None,
+    encoding: str = "utf-8",
+) -> Result:
+    """Checkpoint running-config, apply a template, and restore the checkpoint on apply failure.
+
+    Combines 'create_checkpoint', 'configure_from_template', and conditional
+    'configure_replace' in one per-host task so rollback runs even when NornFlow's
+    built-in 'set_to' hook skips failed tasks (see NornFlow issue #87).
+
+    Args:
+        checkpoint_name: Checkpoint basename; stored as 'flash:checkpoint_<name>'.
+        template_path: Path to a template file on the runner (required unless
+            'template_string' is set).
+        template_string: Inline template (optional; wins over template_path when both set).
+        variables: Optional dict merged into the template context.
+        encoding: File encoding for template_path (default 'utf-8').
+
+    Dry-run does not open a connection. On apply failure after the checkpoint is
+    written, 'configure replace' is attempted before returning a failed result.
+    """
+    if task.is_dry_run():
+        return _dry_run_skipped(
+            task,
+            "would checkpoint, render template, push configuration, and restore on failure",
+        )
+    if not str(checkpoint_name).strip():
+        msg = 'Task param "checkpoint_name" must be a non-empty string.'
+        return _result_failed(task, ValueError(msg))
+    try:
+        rendered = _render_template_body(
+            task,
+            template_path=template_path,
+            template_string=template_string,
+            variables=variables,
+            encoding=encoding,
+        )
+    except FileNotFoundError as exc:
+        return _result_failed(task, exc)
+    except ValueError as exc:
+        return _result_failed(task, exc)
+
+    dest = _checkpoint_destination(checkpoint_name)
+    node = _node_for_task(task)
+    checkpoint_out = node.run_commands([f"copy running-config {dest}"], encoding="text")
+    try:
+        apply_out = node.config(rendered)
+    except (CommandError, EapiConfigError, TypeError, ValueError) as exc:
+        with contextlib.suppress(Exception):
+            node.run_commands([f"configure replace {dest}"], encoding="text")
+        raise exc  # noqa: TRY201
+
+    return _result_ok(
+        task,
+        {"destination": dest, "checkpoint_raw": checkpoint_out, "apply_raw": apply_out},
+        changed=True,
+    )
 
 
 @_eos_task
@@ -203,8 +302,7 @@ def create_checkpoint(task: Task, name: str) -> Result:
     if not str(name).strip():
         msg = 'Task param "name" must be a non-empty string.'
         return _result_failed(task, ValueError(msg))
-    safe = str(name).strip().replace(" ", "_")
-    dest = f"flash:checkpoint_{safe}"
+    dest = _checkpoint_destination(name)
     node = _node_for_task(task)
     out = node.run_commands([f"copy running-config {dest}"], encoding="text")
     return _result_ok(task, {"destination": dest, "raw": out}, changed=True)

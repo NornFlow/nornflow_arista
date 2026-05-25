@@ -141,6 +141,20 @@ Render a Jinja2 template and push the result via `configure terminal`.
 
 `template_string` takes precedence when both are provided. The template context automatically includes `host.name` and `host.data`.
 
+### `safe_configure_from_template`
+
+Checkpoint running-config, render a Jinja2 template, push via `configure terminal`, and run `configure replace` from the checkpoint if the apply step fails. Used by the `safe_config_change` workflow.
+
+| Arg | Type | Required | Description |
+|---|---|---|---|
+| `checkpoint_name` | `str` | Yes | Checkpoint basename; stored as `flash:checkpoint_<name>` |
+| `template_path` | `str` | One of the two | Path to a `.j2` file on the runner |
+| `template_string` | `str` | One of the two | Inline template string |
+| `variables` | `dict` | No | Extra vars merged into template context |
+| `encoding` | `str` | `utf-8` | File encoding for `template_path` |
+
+On success, the result includes `destination` (checkpoint path), `checkpoint_raw`, and `apply_raw`. On apply failure after the checkpoint is written, rollback is attempted before the task returns failed.
+
 ### `configure_replace`
 
 Replace the running configuration using a file already on the device.
