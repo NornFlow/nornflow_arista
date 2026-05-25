@@ -60,6 +60,8 @@ Applies a configuration change safely in one task per host:
 | `checkpoint_name` | Name for the checkpoint file (e.g. `pre_change_20260523`) |
 | `change_template_path` | Path to the Jinja2 template on the runner filesystem |
 
+The workflow resolves `checkpoint_name` and `change_template_path` in **NornFlow's Jinja layer** (task `args`). The `.j2` file itself is rendered separately by the task; pass any extra data the template needs via the task `variables` argument. See [Device config templates](tasks.md#device-config-templates-two-jinja-layers).
+
 > **Note:** This workflow uses the `safe_configure_from_template` task instead of chaining separate tasks with `set_to: _failed` and a conditional rollback step. NornFlow's built-in `SetToHook` does not run on failed tasks, so that YAML pattern cannot capture failure for rollback until [NornFlow #87](https://github.com/theandrelima/nornflow/issues/87) is fixed.
 
 ```yaml

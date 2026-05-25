@@ -5,6 +5,7 @@
 - [Getter tasks (read-only)](#getter-tasks-read-only)
 - [Arguments for parametrised getters](#arguments-for-parametrised-getters)
 - [Config tasks (mutating)](#config-tasks-mutating)
+- [Device config templates (two Jinja layers)](#device-config-templates-two-jinja-layers)
 - [Adding your own tasks](#adding-your-own-tasks)
 
 ---
@@ -128,6 +129,47 @@ Abort a previously opened named session.
 |---|---|---|---|
 | `session_name` | `str` | Yes | EOS configure session name |
 
+### Device config templates (two Jinja layers)
+
+Configuration templating happens in two separate places:
+
+| Layer | Rendered by | Typical use |
+|---|---|---|
+| **Orchestration** | NornFlow | Workflow YAML, blueprints, task `args` (paths, `variables` values, conditionals) |
+| **Device config** | `configure_from_template` / `safe_configure_from_template` | `.j2` files or `template_string` that become EOS CLI |
+
+NornFlow resolves Jinja in YAML first (including [package J2 filters](j2_filters.md)). The config tasks then render device templates in a **task-local** Jinja environment. Workflow scope does not leak into device `.j2` files automatically; the task only sees what you pass in `args`.
+
+**Device template context** (both template tasks):
+
+| Key | Description |
+|---|---|
+| `host` | Nornir host object for the current device |
+| `hostname` | Inventory host name (`host.name`) |
+| Keys from `host.data` | Flattened to the top level (for example `role` if set in inventory) |
+| `variables` | Extra keys from the task `variables` argument (override name clashes on the same key) |
+
+NornFlow Jinja filters are **not** registered in the device template environment. Pre-process values in workflow `args`, then pass them via `variables`:
+
+```yaml
+tasks:
+  - name: safe_configure_from_template
+    args:
+      checkpoint_name: "{{ checkpoint_name }}"
+      template_path: "{{ change_template_path }}"
+      variables:
+        vlans: "{{ vlan_spec | eos_vlan_expand }}"
+        device_name: "{{ hostname }}"
+```
+
+```jinja2
+{# change.j2 — device config layer #}
+hostname {{ device_name }}
+{% for vlan in vlans %}
+vlan {{ vlan }}
+{% endfor %}
+```
+
 ### `configure_from_template`
 
 Render a Jinja2 template and push the result via `configure terminal`.
@@ -139,11 +181,11 @@ Render a Jinja2 template and push the result via `configure terminal`.
 | `variables` | `dict` | No | Extra vars merged into template context |
 | `encoding` | `str` | `utf-8` | File encoding for `template_path` |
 
-`template_string` takes precedence when both are provided. The template context automatically includes `host.name` and `host.data`.
+`template_string` takes precedence when both are provided. See [Device config templates](#device-config-templates-two-jinja-layers) for context and data-flow rules.
 
 ### `safe_configure_from_template`
 
-Checkpoint running-config, render a Jinja2 template, push via `configure terminal`, and run `configure replace` from the checkpoint if the apply step fails. Used by the `safe_config_change` workflow.
+Checkpoint running-config, render a Jinja2 template, push via `configure terminal`, and run `configure replace` from the checkpoint if the apply step fails. Used by the `safe_config_change` workflow. Uses the same device template rendering rules as `configure_from_template`.
 
 | Arg | Type | Required | Description |
 |---|---|---|---|
