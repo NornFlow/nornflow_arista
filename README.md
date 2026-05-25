@@ -31,7 +31,7 @@ The task and workflow coverage is intentionally modest. It covers a useful subse
 | [Tasks](docs/tasks.md) | All provided getter and config tasks with their parameters |
 | [Blueprints](docs/blueprints.md) | Reusable task sequences and how to compose them |
 | [Workflows](docs/workflows.md) | Example end-to-end workflows shipped with the package |
-| [Jinja2 Filters](docs/j2_filters.md) | EOS-specific filters for templates and blueprints |
+| [Jinja2 Filters](docs/j2_filters.md) | EOS-specific filters for workflow and blueprint YAML |
 | [Inventory Filters](docs/filters.md) | Host-level inventory filter functions |
 | [Hooks](docs/hooks.md) | Task behaviour extensions via NornFlow hooks |
 | [Processors](docs/processors.md) | Nornir result processors |
@@ -45,7 +45,14 @@ The task and workflow coverage is intentionally modest. It covers a useful subse
 pip install nornflow-arista
 ```
 
-Point your `nornflow.yaml` at the installed package directories and run:
+Declare the package in `nornflow.yaml`:
+
+```yaml
+packages:
+  - name: nornflow_arista
+```
+
+Then run a workflow:
 
 ```bash
 nornflow run daily_snapshot.yaml

@@ -136,9 +136,13 @@ tasks:
 
 ## Writing your own blueprints
 
-A blueprint is a YAML file with a root `tasks:` key and an optional `description`. It uses the same task names, `args`, `if`, and `set_to` hooks as any workflow task list. Place your files under `local_blueprints` in `nornflow.yaml` to make them discoverable.
+A blueprint is a YAML file with a root `tasks:` key and an optional `description`. It uses the same task names, `args`, `if`, and `set_to` hooks as any workflow task list.
 
-See [Contributing](contributing.md) for conventions.
+**Package blueprints** (such as those shipped in `nornflow_arista/blueprints/`) are loaded automatically when you declare the companion package under `packages` in `nornflow.yaml`. Reference them by filename in a workflow, for example `blueprint: state_snapshot.yaml`.
+
+**Project-local blueprints** live in directories listed under `local_blueprints` in `nornflow.yaml`. Use this for blueprints that belong to your deployment repo rather than a pip-installed package.
+
+See [Getting Started](getting_started.md#wiring-into-nornflow) for the `packages` syntax and [Contributing](contributing.md) for conventions.
 
 ---
 
