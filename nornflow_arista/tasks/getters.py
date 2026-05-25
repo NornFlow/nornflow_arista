@@ -197,7 +197,8 @@ def get_config_diff(task: Task) -> Result:
     """Show differences between running-config and startup-config ('show running-config diffs')."""
     node = _node_for_task(task)
     out = node.run_commands(["show running-config diffs"], encoding="text")
-    text = str(out[0].get("output", ""))
+    first = out[0] if out else {}
+    text = str(first.get("output", ""))
     return _result_ok(task, text)
 
 

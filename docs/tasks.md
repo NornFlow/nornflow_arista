@@ -43,7 +43,7 @@ These tasks run `show` commands and return EOS output. Most return structured JS
 | `get_reload_cause` | `show reload cause` | Reason for last reload |
 | `get_running_config` | `show running-config [section <s>] [all]` | Optional `section` and `all` args |
 | `get_startup_config` | `show startup-config` | Returns startup-config as text |
-| `get_config_diff` | `show running-config diffs` | Uncommitted session diffs |
+| `get_config_diff` | `show running-config diffs` | Running-config vs startup-config differences |
 | `dir_flash` | `dir flash:` | Contents of flash filesystem |
 | `dir_path` | `dir <path>` | Optional `path` arg (default `flash:`) |
 | `show_filesystem` | `show filesystem` | Filesystem usage summary |

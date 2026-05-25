@@ -38,6 +38,21 @@ def test_get_config_diff_passes_command_list(
     )
 
 
+@patch("nornflow_arista.tasks.getters._node_for_task")
+def test_get_config_diff_empty_output_returns_empty_string(
+    mock_node_for_task: MagicMock,
+    make_task,
+) -> None:
+    """Empty run_commands response is treated as no diff text, not IndexError."""
+    node = MagicMock()
+    node.run_commands.return_value = []
+    mock_node_for_task.return_value = node
+    task = make_task()
+    result = run_task_like_nornir(getters.get_config_diff, task)
+    assert not result.failed
+    assert result.result == ""
+
+
 @patch("nornflow_arista.tasks.config._node_for_task")
 def test_configure_marks_result_changed(mock_node_for_task: MagicMock, make_task) -> None:
     """Mutating configure sets changed=True on success."""
