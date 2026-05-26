@@ -25,7 +25,12 @@ def my_filter(host: Host, **kwargs) -> bool:
     ...
 ```
 
-They allow workflows to target a dynamic subset of hosts without modifying inventory files. NornFlow discovers them from directories listed under `local_filters` in `nornflow.yaml` and makes them available as named filters in workflow definitions.
+They allow workflows to target a dynamic subset of hosts without modifying inventory files. NornFlow discovers inventory filters from two places:
+
+- **Companion packages** declared under `packages` in `nornflow.yaml` (for example `nornflow_arista/filters/` when `filters` is included, or when no `include` list limits asset types)
+- **Project-local directories** listed under `local_filters` in `nornflow.yaml`
+
+Filter function names become the names you use in workflow definitions. See [Getting Started](getting_started.md#wiring-into-nornflow) for the `packages` syntax.
 
 ## What EOS-specific filters could look like
 
