@@ -99,9 +99,11 @@ def _build_connect_kwargs(
 def connect_kwargs_from_host(host: Host) -> dict[str, Any]:
     """Build keyword arguments for 'pyeapi.connect' from a Nornir host.
 
-    Order of resolution for each field is implemented in 'helpers': inventory
-    ('host.data' and host fields), then environment variables from 'constants',
-    then defaults where defined (for example timeout).
+    Order of resolution for each field is implemented in 'helpers': merged
+    inventory ('host.data' plus 'connection_options[pyeapi].extras', with extras
+    overriding 'host.data'), then standard Nornir host fields where applicable,
+    then environment variables from 'constants', then defaults where defined
+    (for example timeout).
 
     This function does not perform network I/O.
 
@@ -115,7 +117,7 @@ def connect_kwargs_from_host(host: Host) -> dict[str, Any]:
         EapiConfigError: If required settings (for example hostname, username,
             password) cannot be resolved or a numeric field is invalid.
     """
-    data = helpers.host_data(host)
+    data = helpers.merged_eapi_data(host)
 
     hostname = helpers.resolve_hostname(host)
     transport = helpers.resolve_transport(data)

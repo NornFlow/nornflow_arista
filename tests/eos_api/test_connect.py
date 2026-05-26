@@ -4,12 +4,29 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from nornir.core.inventory import Host
+from nornir.core.inventory import ConnectionOptions, Host
 from pyeapi.client import Node
 
 from nornflow_arista.eos_api.connect import connect_kwargs_from_host, node_from_host
 from nornflow_arista.eos_api.constants import DATA_KEY_CA_FILE, ENV_EAPI_KEY_FILE
 from nornflow_arista.eos_api.exceptions import EapiConfigError
+
+
+def _host_with_extras(**extras: object) -> Host:
+    return Host(
+        name="sw1",
+        hostname="10.0.0.1",
+        username="admin",
+        password="secret",
+        data={
+            "eapi_transport": "https",
+            "eapi_port": 443,
+            "eapi_timeout": 30,
+        },
+        connection_options={
+            "pyeapi": ConnectionOptions(extras=extras),
+        },
+    )
 
 
 def test_connect_kwargs_from_host_inventory(eos_host: Host) -> None:
@@ -23,6 +40,31 @@ def test_connect_kwargs_from_host_inventory(eos_host: Host) -> None:
         "port": 443,
         "timeout": 90,
     }
+
+
+def test_connect_kwargs_from_host_uses_connection_options_extras() -> None:
+    host = _host_with_extras(eapi_port=8080, eapi_transport="http")
+
+    kwargs = connect_kwargs_from_host(host)
+
+    assert kwargs["port"] == 8080
+    assert kwargs["transport"] == "http"
+    assert kwargs["timeout"] == 30
+
+
+def test_connect_kwargs_from_host_without_extras_uses_host_data() -> None:
+    host = Host(
+        name="sw1",
+        hostname="10.0.0.1",
+        username="admin",
+        password="secret",
+        data={"eapi_transport": "https", "eapi_port": 443},
+    )
+
+    kwargs = connect_kwargs_from_host(host)
+
+    assert kwargs["port"] == 443
+    assert kwargs["transport"] == "https"
 
 
 def test_connect_kwargs_optional_tls_files(

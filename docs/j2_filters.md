@@ -2,6 +2,7 @@
 
 **Contents:**
 
+- [Where filters apply](#where-filters-apply)
 - [eos_intf_canonical](#eos_intf_canonical)
 - [eos_vlan_expand](#eos_vlan_expand)
 - [Adding your own filters](#adding-your-own-filters)
@@ -25,7 +26,16 @@ packages:
       - j2_filters
 ```
 
-Once loaded, filters are available in all templates, blueprints, and workflow variable expressions.
+## Where filters apply
+
+Filters registered from this package are loaded into **NornFlow's orchestration Jinja environment**. Use them in:
+
+- Workflow and blueprint YAML (for example task `args`, `if` conditions, and `vars`)
+- Any other expression NornFlow renders before a task runs
+
+They are **not** available inside device config `.j2` files rendered by `configure_from_template` or `safe_configure_from_template`. Those tasks use a separate, task-local Jinja environment for EOS CLI output. Pass workflow-derived values into device templates via task `args` (especially the `variables` dict). Apply filters in the workflow layer first, then hand the results to the task.
+
+See [Device config templates](tasks.md#device-config-templates-two-jinja-layers) in the Tasks reference for the full data-flow pattern.
 
 ---
 
@@ -63,7 +73,7 @@ Unrecognised prefixes are returned unchanged.
 {{ "Tunnel0"       | eos_intf_canonical }}  {# Tunnel0 (unknown prefix, unchanged) #}
 ```
 
-### In a template
+### In a workflow or blueprint
 
 ```jinja2
 {% for intf in interfaces %}
@@ -90,11 +100,22 @@ Raises `ValueError` if a range has start greater than end (e.g. `25-20`).
 {{ "10-12,11-13"  | eos_vlan_expand }}  {# [10, 11, 12, 13]              #}
 ```
 
-### In a template
+### Passing expanded VLANs into a device template
+
+Apply the filter in workflow task `args`, then reference the result from the device `.j2` file:
+
+```yaml
+tasks:
+  - name: configure_from_template
+    args:
+      template_path: "{{ change_template_path }}"
+      variables:
+        vlans: "{{ vlan_spec | eos_vlan_expand }}"
+```
 
 ```jinja2
-vlan {{ vlan_spec | eos_vlan_expand | join(',') }}
-{% for vlan in vlan_spec | eos_vlan_expand %}
+{# templates/vlans.j2 — device config layer; no package filters here #}
+{% for vlan in vlans %}
 vlan {{ vlan }}
    name VLAN_{{ vlan }}
 {% endfor %}
@@ -114,7 +135,7 @@ def my_new_filter(value: str) -> str:
 ```
 
 ```jinja2
-{{ some_value | my_new_filter }}
+{{ some_value | my_new_filter }}  {# in workflow YAML / blueprint YAML #}
 ```
 
 See [Contributing](contributing.md) for how to add new filters to this package.

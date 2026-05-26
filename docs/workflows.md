@@ -47,12 +47,11 @@ nornflow run daily_snapshot.yaml
 
 **File:** `nornflow_arista/workflows/safe_config_change.yaml`
 
-Applies a configuration change safely by:
-1. Creating a checkpoint of the current running-config.
-2. Applying the change via a Jinja2 template.
-3. Restoring the checkpoint on any host where step 2 fails.
+Applies a configuration change safely in one task per host:
 
-The `failure_strategy: run-all` ensures all three steps execute on every host regardless of individual failures, so no host is left without an attempted rollback.
+1. Copies running-config to a flash checkpoint.
+2. Renders and pushes the change from a Jinja2 template.
+3. On apply failure, runs `configure replace` from that checkpoint before reporting failure.
 
 **Required variables** (pass via `--vars` or domain/workflow variables):
 
@@ -60,6 +59,10 @@ The `failure_strategy: run-all` ensures all three steps execute on every host re
 |---|---|
 | `checkpoint_name` | Name for the checkpoint file (e.g. `pre_change_20260523`) |
 | `change_template_path` | Path to the Jinja2 template on the runner filesystem |
+
+The workflow resolves `checkpoint_name` and `change_template_path` in **NornFlow's Jinja layer** (task `args`). The `.j2` file itself is rendered separately by the task; pass any extra data the template needs via the task `variables` argument. See [Device config templates](tasks.md#device-config-templates-two-jinja-layers).
+
+> **Note:** This workflow uses the `safe_configure_from_template` task instead of chaining separate tasks with `set_to: _failed` and a conditional rollback step. NornFlow's built-in `SetToHook` does not run on failed tasks, so that YAML pattern cannot capture failure for rollback until [NornFlow #87](https://github.com/theandrelima/nornflow/issues/87) is fixed.
 
 ```yaml
 workflow:
@@ -71,22 +74,10 @@ workflow:
     change_template_path: ~
 
   tasks:
-    - name: create_checkpoint
+    - name: safe_configure_from_template
       args:
-        name: "{{ checkpoint_name }}"
-      set_to:
-        checkpoint_dest: "destination"
-
-    - name: configure_from_template
-      args:
+        checkpoint_name: "{{ checkpoint_name }}"
         template_path: "{{ change_template_path }}"
-      set_to:
-        configure_failed: "_failed"
-
-    - name: configure_replace
-      if: "{{ configure_failed }}"
-      args:
-        path: "{{ checkpoint_dest }}"
 ```
 
 **Run:**
@@ -105,7 +96,7 @@ nornflow run safe_config_change.yaml --dry-run \
          "change_template_path=templates/acl_update.j2"
 ```
 
-No connections are opened; each mutating task returns a skipped result.
+No connections are opened; the task returns a skipped result.
 
 ---
 
