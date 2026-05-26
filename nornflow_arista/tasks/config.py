@@ -20,7 +20,6 @@ from nornflow_arista.tasks.task_helpers import (
     CommandsArg,
 )
 
-
 _CHECKPOINT_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
