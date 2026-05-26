@@ -23,6 +23,10 @@ dependencies = [
     "pyeapi>=1.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/NornFlow/nornflow_arista"
+Documentation = "https://github.com/NornFlow/nornflow_arista/blob/dev/docs/getting_started.md"
+
 [dependency-groups]
 dev = [
     "mypy>=1.20.0",
