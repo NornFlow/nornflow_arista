@@ -8,6 +8,8 @@
 
 A [NornFlow](https://github.com/theandrelima/nornflow) companion package for Arista EOS.
 
+**Use with NornFlow.** This package provides EOS tasks and workflows for a NornFlow project. Install both in your automation environment and declare `nornflow_arista` under `packages` in `nornflow.yaml`.
+
 ---
 
 ## What this package is (and what it isn't)
@@ -41,13 +43,16 @@ The task and workflow coverage is intentionally modest. It covers a useful subse
 
 ## Quick look
 
+Install NornFlow and this companion package:
+
 ```bash
-pip install nornflow-arista
+pip install nornflow nornflow-arista
 ```
 
-Declare the package in `nornflow.yaml`:
+Declare the package in `nornflow.yaml` (you still need a Nornir config path and inventory in your project):
 
 ```yaml
+nornir_config_file: nornir_config.yaml
 packages:
   - name: nornflow_arista
 ```
@@ -58,7 +63,7 @@ Then run a workflow:
 nornflow run daily_snapshot.yaml
 ```
 
-See [Getting Started](docs/getting_started.md) for the full setup.
+See [Getting Started](docs/getting_started.md) for the full setup. Release history: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
