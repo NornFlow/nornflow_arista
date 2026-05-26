@@ -1,0 +1,22 @@
+description: >
+  Optionally copy a remote file onto the device, then replace running and/or startup-config using
+  on-device file paths. Set 'stage_copy' to true to run the copy step. Set 'eos_replace_mode',
+  'eos_replace_running_commands', and 'eos_replace_startup_commands' as in
+  'config_replace_from_file.yaml'.
+
+tasks:
+  - name: copy_from_remote
+    if: "{{ stage_copy | default(false) }}"
+    args:
+      source: "{{ copy_source }}"
+      destination: "{{ copy_destination }}"
+
+  - name: run_commands
+    if: "{{ eos_replace_mode == 'running' or eos_replace_mode == 'both' }}"
+    args:
+      commands: "{{ eos_replace_running_commands }}"
+
+  - name: run_commands
+    if: "{{ eos_replace_mode == 'startup' or eos_replace_mode == 'both' }}"
+    args:
+      commands: "{{ eos_replace_startup_commands }}"

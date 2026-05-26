@@ -1,0 +1,43 @@
+description: >
+  Capture a broad operational snapshot (facts, interfaces, routing peers, MLAG, LLDP, configs)
+  for later comparison or auditing. Each step stores Result.result in a runtime variable named
+  after the getter with the 'get_' prefix removed (e.g. get_facts -> facts).
+
+tasks:
+  - name: get_facts
+    set_to:
+      facts: "_result"
+
+  - name: get_interfaces
+    set_to:
+      interfaces: "_result"
+
+  - name: get_interface_counters
+    set_to:
+      interface_counters: "_result"
+
+  - name: get_bgp_summary
+    set_to:
+      bgp_summary: "_result"
+
+  - name: get_ospf_neighbors
+    set_to:
+      ospf_neighbors: "_result"
+
+  - name: get_mlag_status
+    set_to:
+      mlag_status: "_result"
+
+  - name: get_ip_route
+    set_to:
+      ip_route: "_result"
+
+  - name: get_lldp_neighbors
+    args:
+      detail: true
+    set_to:
+      lldp_neighbors: "_result"
+
+  - name: get_running_config
+    set_to:
+      running_config: "_result"

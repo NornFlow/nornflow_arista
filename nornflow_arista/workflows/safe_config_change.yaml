@@ -1,0 +1,20 @@
+workflow:
+  name: safe_config_change
+  description: >
+    Apply configuration from a template with checkpoint and automatic rollback
+    on apply failure (via the safe_configure_from_template task).
+
+  failure_strategy: run-all
+
+  vars:
+    checkpoint_name: "pre_change_checkpoint"  # required: pass via --vars or domain vars, e.g. "checkpoint_name=pre_change_20260523_1900"
+    change_template_path: ~                   # required: pass via --vars or domain vars, e.g. "change_template_path=templates/my_change.j2"
+
+  # Single composite task instead of create_checkpoint + configure_from_template +
+  # conditional configure_replace with set_to: _failed. NornFlow SetToHook skips
+  # set_to on failed tasks: https://github.com/theandrelima/nornflow/issues/87
+  tasks:
+    - name: safe_configure_from_template
+      args:
+        checkpoint_name: "{{ checkpoint_name }}"
+        template_path: "{{ change_template_path }}"

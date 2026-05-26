@@ -1,0 +1,17 @@
+name: Main Source Guard
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  only-dev-can-target-main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request source branch
+        run: |
+          if [ "${{ github.head_ref }}" != 'dev' ]; then
+            echo "Only PRs from 'dev' can target 'main'. Current source branch: '${{ github.head_ref }}'."
+            exit 1
+          fi
