@@ -296,6 +296,16 @@ def test_safe_configure_from_template_template_error_skips_rollback(
     mock_nft.assert_not_called()
 
 
+@pytest.mark.parametrize("bad_name", ["foo/bar", "bad;name", "has\nnewline"])
+def test_safe_configure_from_template_rejects_unsafe_checkpoint_name(
+    make_task, bad_name: str
+) -> None:
+    task = make_task(checkpoint_name=bad_name, template_string="hostname leaf01")
+    result = run_task_like_nornir(config.safe_configure_from_template, task)
+    assert result.failed
+    assert isinstance(result.exception, ValueError)
+
+
 # --------------------------------------------------------------------------- #
 # configure_replace                                                             #
 # --------------------------------------------------------------------------- #
@@ -372,6 +382,15 @@ def test_create_checkpoint_replaces_spaces_in_name(mock_nft: MagicMock, make_tas
     task.params["name"] = "my checkpoint"
     result = run_task_like_nornir(config.create_checkpoint, task)
     assert result.result["destination"] == "flash:checkpoint_my_checkpoint"
+
+
+@pytest.mark.parametrize("bad_name", ["foo/bar", "bad;name", "has\nnewline"])
+def test_create_checkpoint_rejects_unsafe_name(make_task, bad_name: str) -> None:
+    task = make_task()
+    task.params["name"] = bad_name
+    result = run_task_like_nornir(config.create_checkpoint, task)
+    assert result.failed
+    assert isinstance(result.exception, ValueError)
 
 
 # --------------------------------------------------------------------------- #

@@ -1,6 +1,7 @@
 """Mutating Nornir tasks: EOS configuration and save via eAPI."""
 
 import contextlib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -20,9 +21,22 @@ from nornflow_arista.tasks.task_helpers import (
 )
 
 
+_CHECKPOINT_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
 def _checkpoint_destination(name: str) -> str:
-    """Return the on-device flash path for a checkpoint basename."""
+    """Return the on-device flash path for a checkpoint basename.
+
+    Raises:
+        ValueError: When the name is empty or contains disallowed characters.
+    """
     safe = str(name).strip().replace(" ", "_")
+    if not safe or _CHECKPOINT_NAME_RE.fullmatch(safe) is None:
+        msg = (
+            "Checkpoint name must contain only letters, digits, underscores, "
+            f"dashes, and spaces (got {name!r})."
+        )
+        raise ValueError(msg)
     return f"flash:checkpoint_{safe}"
 
 
